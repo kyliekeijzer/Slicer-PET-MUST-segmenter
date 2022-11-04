@@ -5,7 +5,7 @@ multiple lesions at once, and extracts metabolic active tumor volume (MATV).
 ![](screenshots/Slicer-MUST-segmenter_screenshot.png?raw=true "MUST-segmenter screenshot")  
 
 ## 1. Installation
-Download Slicer V4.11 [here](https://slicer-packages.kitware.com/#collection/5f4474d0e1d8c75dfc70547e/folder/60ac0ce2ae4540bf6a899ecc)  
+Download 3D Slicer [here](https://download.slicer.org/)  
 tbd.
 
 ## 2. Tutorial
