@@ -1,12 +1,27 @@
 import os, datetime, traceback, pydicom, qt, slicer, vtk, sitkUtils
 import numpy as np
-import pandas as pd
 import SimpleITK as sitk
 import vtkSlicerSegmentationsModuleLogicPython as segmentLogic
-from radiomics import featureextractor
 from collections import deque
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
+
+try:
+  import openpyxl
+except:
+  slicer.util.pip_install('openpyxl')
+
+try:
+  import pandas as pd
+except:
+  slicer.util.pip_install('pandas')
+  import pandas as pd
+
+try:
+  from radiomics import featureextractor
+except:
+  slicer.util.pip_install("git+https://github.com/AIM-Harvard/pyradiomics.git")
+  from radiomics import featureextractor
 
 #
 # MUSTsegmenter
