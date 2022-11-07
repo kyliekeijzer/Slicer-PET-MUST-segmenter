@@ -1,18 +1,18 @@
-# MUST-segmenter
+# <span style="color:#DA461C">MUST-segmenter</span>
 ***MU***ltiple ***S***UV ***T***hresholding (MUST)-segmenter is a semi-automated PET image segmentation tool that enables delineation of 
 multiple lesions at once, and extracts metabolic active tumor volume (MATV).
 
 ![](screenshots/Slicer-MUST-segmenter_screenshot.png?raw=true "MUST-segmenter screenshot")  
 
-## 1. Installation
+## <span style="color:#FFFF00">1. Installation</span>
 Download 3D Slicer [here](https://download.slicer.org/)  
 tbd.
 
-## 2. Tutorial
+## <span style="color:#FFFF00">2. Tutorial</span>
 #### DEMO video tbd.
 <br>
 
-### Preparation
+### <span style="color:#DA461C">Preparation</span>
 
 1. [Import PET and CT DICOM series into 3D Slicer ](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-import)  
 This can be retrieved by drag and dropping files into the DICOM database or by importing files into the DICOM database.
@@ -29,7 +29,7 @@ b. ![](screenshots/5.png?raw=true "")
 5. Go to MUST-segmenter  
 ![](screenshots/6.png?raw=true "")  
 
-### Segmentation with MUST-segmenter
+### <span style="color:#DA461C">Segmentation with MUST-segmenter</span>
 1. Identify tumors by seed placing (Markups)  
    ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
 2. Choose segmentation method(s):  
@@ -64,7 +64,7 @@ b. ![](screenshots/5.png?raw=true "")
    Before exporting to NRRD or NIFTI, the segmentation node needs to be converted to a labelmap node!  
    ![](screenshots/35.png?raw=true "")  
 
-### MATV extraction
+### <span style="color:#DA461C">MATV extraction</span>
 1. Select the segmentation results that are present in the scene  
 ![](screenshots/10.png?raw=true "")  
 2. Compute MATV  
@@ -72,7 +72,7 @@ b. ![](screenshots/5.png?raw=true "")
 3. Files are stored at the reported location  
 ![](screenshots/28.png?raw=true "")
 
-### Optional functionalities
+### <span style="color:#DA461C">Optional functionalities</span>
 1. **Remove avoidance regions**  
    a. Load avoidance regions as segmentations  
       ![](screenshots/30.png?raw=true "") ![](screenshots/29.png?raw=true "")  
@@ -83,8 +83,8 @@ b. ![](screenshots/5.png?raw=true "")
    Selecting this option will result in the deletion of all areas outside the provided ROIs  
    ![](screenshots/32.png?raw=true "")  
 
-## 3. Notes
-### Segmentation
+## <span style="color:#FFFF00">3. Notes</span>
+### <span style="color:#DA461C">Segmentation</span>
 - Make sure the PET series name contains 'pet' or 'PET'  
 ![](screenshots/2.png?raw=true "")  
 - Make sure the brain contour is named 'brain'  
@@ -92,13 +92,13 @@ b. ![](screenshots/5.png?raw=true "")
 - Make sure the 'liverSphere' is present for liver-based segmentation methods  
 ![](screenshots/26.png?raw=true "")  
 - Make sure only ***one*** patient is loaded into the scene  
-### MATV extraction
+### <span style="color:#DA461C">MATV extraction</span>
 - Make sure all segmentation results of the selected methods are present in the scene
 
 
-## 4. License
+## <span style="color:#FFFF00">4. License</span>
 See LICENSE
 
-## 5. Contact
+## <span style="color:#FFFF00">5. Contact</span>
 For any inquiries according to usage or bugs, please contact Kylie Keijzer ([k.keijzer@umcg.nl](mailto:k.keijzer@umcg.nl?subject=MUST-segmenter))
 
