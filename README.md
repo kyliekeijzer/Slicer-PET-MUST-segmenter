@@ -82,6 +82,14 @@ b. ![](screenshots/5.png?raw=true "")
 2. **Remove area outside bounding boxes**  
    Selecting this option will result in the deletion of all areas outside the provided ROIs  
    ![](screenshots/32.png?raw=true "")  
+3. **Edit liverSphere**  
+   If you are not satisfied with the position of the 'liverSphere', it can be moved by the following steps:  
+   a. Create and edit a new transform  
+      ![](screenshots/36.png?raw=true "") &rarr; ![](screenshots/37.png?raw=true "")  
+   b. Change the position by altering the 'Translation' and 'Rotation' values  
+      ![](screenshots/38.png?raw=true "")  
+   c. Permanently save the position changes  
+      ![](screenshots/39.png?raw=true "")  
 
 ## <span style="color:#FFFF00">3. Notes</span>
 ### <span style="color:#DA461C">Segmentation</span>
