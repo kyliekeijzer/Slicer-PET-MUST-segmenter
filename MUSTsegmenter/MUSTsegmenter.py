@@ -5,23 +5,8 @@ import vtkSlicerSegmentationsModuleLogicPython as segmentLogic
 from collections import deque
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
+from radiomics import featureextractor
 
-try:
-  import openpyxl
-except:
-  slicer.util.pip_install('openpyxl')
-
-try:
-  import pandas as pd
-except:
-  slicer.util.pip_install('pandas')
-  import pandas as pd
-
-try:
-  from radiomics import featureextractor
-except:
-  slicer.util.pip_install("git+https://github.com/AIM-Harvard/pyradiomics.git")
-  from radiomics import featureextractor
 
 #
 # MUSTsegmenter
@@ -228,6 +213,26 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                  self.roiFilter, self.segmentationColors)
 
   def onComputeMatvButton(self):
+    try:
+      import openpyxl
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'openpyxl' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('openpyxl')
+        import openpyxl
+      else:
+        return
+
+    try:
+      import pandas as pd
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'pandas' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('pandas')
+        import pandas as pd
+      else:
+        return
+
     thresholds = []
     if self.ui.SUV2_5.checkState() > 0:
       thresholds.append('suv2.5')
