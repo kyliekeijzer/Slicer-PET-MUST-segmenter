@@ -5,12 +5,10 @@ multiple lesions at once, and extracts metabolic active tumor volume (MATV).
 ![](screenshots/Slicer-MUST-segmenter_screenshot.png?raw=true "MUST-segmenter screenshot")  
 
 ## <span style="color:#FFFF00">1. Installation</span>
-Download 3D Slicer [here](https://download.slicer.org/)  
-tbd.
+1. Download 3D Slicer as described [here](https://slicer.readthedocs.io/en/latest/user_guide/getting_started.html#installing-3d-slicer).  
+2. Download the '**SlicerRadiomics**' extension from the Extensions Manager as described [here](https://slicer.readthedocs.io/en/latest/user_guide/extensions_manager.html#install-extensions).
 
 ## <span style="color:#FFFF00">2. Tutorial</span>
-#### DEMO video tbd.
-<br>
 
 ### <span style="color:#DA461C">Preparation</span>
 
