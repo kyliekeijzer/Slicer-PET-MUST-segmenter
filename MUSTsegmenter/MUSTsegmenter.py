@@ -65,6 +65,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Buttons
     self.ui.performSegmentationButton.connect('clicked(bool)', self.onSegmentationButton)
     self.ui.computeMATVButton.connect('clicked(bool)', self.onComputeMatvButton)
+    self.ui.extractPETFeaturesButton.connect('clicked(bool)', self.onExtractPetFeaturesButton)
     self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
 
     self.initializeParameterNode()
@@ -231,6 +232,16 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                  self.roiFilter, self.segmentationColors)
 
   def onComputeMatvButton(self):
+    thresholds = self.getSelectedThresholds()
+    self.segmentationLogic.calulateMATV(thresholds)
+
+
+  def onExtractPetFeaturesButton(self):
+    thresholds = self.getSelectedThresholds()
+    self.segmentationLogic.extractFeatures(thresholds)
+
+
+  def getSelectedThresholds(self):
     thresholds = []
     if self.ui.SUV2_5.checkState() > 0:
       thresholds.append('suv2.5')
@@ -251,7 +262,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.ui.brain_region.checkState() > 0:
       thresholds.extend(['brainSuvMean41', 'brainSuvMean45', 'brainSuvMean50',
                          'brainSuvMeanCorrected41', 'brainSuvMeanCorrected45', 'brainSuvMeanCorrected50'])
-    self.segmentationLogic.calulateMATV(thresholds)
+    return thresholds
 
 
 #
@@ -468,9 +479,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     Method that calculates the MATVs for the given threshold methods that are available in the scene
     """
     self.matvRows = []
-    extractor = featureextractor.RadiomicsFeatureExtractor()
-    extractor.disableAllFeatures()
-    extractor.enableFeaturesByName(shape=['MeshVolume'])
+    extractor = self.createExtractor(False)
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
@@ -491,6 +500,53 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     volumeFilePath = f'{savePath}/MATV_patient_{self.patientID}.xlsx'
     volumeDf.to_excel(volumeFilePath, index=False)
     slicer.util.infoDisplay(f'MATV calculations finished, MATVs stored at: {volumeFilePath}', 'MATVs extracted')
+
+  def extractFeatures(self, thresholds):
+    featuresRows = []
+    extractor = self.createExtractor(True)
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+    suvImage = sitk.GetImageFromArray(self.suvMap)
+    suvImage.SetSpacing(pixelSpacing)
+    for thresh in thresholds:
+      try:
+        segmentNode = slicer.util.getNode('{0}_segmentation_{1}'.format(self.patientID, thresh))
+      except:
+        continue
+      segmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode)
+      segmentImage = sitk.GetImageFromArray(segmentArray)
+      segmentImage.SetSpacing(pixelSpacing)
+
+      featuresRow = {
+        'Segmentation method': thresh
+      }
+      featureVector = extractor.execute(suvImage, segmentImage)
+      featuresRow.update(featureVector)
+      featuresRows.append(featuresRow)
+
+    featuresDf = pd.DataFrame(featuresRows)
+    savePath = "/".join(self.petSeriesPath.split('/')[:-1])
+    volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}.xlsx'
+    featuresDf.to_excel(volumeFilePath, index=False)
+    slicer.util.infoDisplay(f'PET feature extraction finished, features stored at: {volumeFilePath}',
+                            'PET features extracted')
+
+
+  def createExtractor(self, allFeatures):
+    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor.disableAllFeatures()
+    if allFeatures:
+      shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Compactness1', 'Compactness2', 'Elongation', 'Flatness',
+                       'LeastAxisLength', 'MajorAxisLength', 'Maximum2DDiameterColumn', 'Maximum2DDiameterRow',
+                       'Maximum2DDiameterSlice', 'Maximum3DDiameter', 'MinorAxisLength', 'SphericalDisproportion',
+                       'Sphericity', 'SurfaceArea', 'SurfaceVolumeRatio']
+      firstorderFeatures = ['10Percentile', '90Percentile', 'Energy', 'Entropy', 'InterquartileRange', 'Kurtosis',
+                            'Maximum', 'MeanAbsoluteDeviation', 'Mean', 'Median', 'Minimum', 'Range',
+                            'RobustMeanAbsoluteDeviation',
+                            'RootMeanSquared', 'Skewness', 'StandardDeviation', 'TotalEnergy', 'Uniformity', 'Variance']
+      extractor.enableFeaturesByName(shape=shapeFeatures, firstorder=firstorderFeatures)
+    else:
+      extractor.enableFeaturesByName(shape=['MeshVolume'])
+    return extractor
 
   def getRoisFilter(self, petRoisInfo, shape):
     """

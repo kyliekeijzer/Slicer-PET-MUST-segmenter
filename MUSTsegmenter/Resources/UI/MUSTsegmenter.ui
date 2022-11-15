@@ -461,6 +461,20 @@
      </property>
     </widget>
    </item>
+   <item>
+    <widget class="QPushButton" name="extractPETFeaturesButton">
+     <property name="font">
+      <font>
+       <pointsize>10</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Extract PET Features</string>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>
