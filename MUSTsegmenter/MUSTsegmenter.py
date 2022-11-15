@@ -68,6 +68,24 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
 
     self.initializeParameterNode()
+    self.checkPythonLibs()
+
+  def checkPythonLibs(self):
+    try:
+      import openpyxl
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'openpyxl' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('openpyxl')
+        import openpyxl
+
+    try:
+      import pandas as pd
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'pandas' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('pandas')
+        import pandas as pd
 
   def cleanup(self):
     self.removeObservers()
@@ -213,26 +231,6 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                  self.roiFilter, self.segmentationColors)
 
   def onComputeMatvButton(self):
-    try:
-      import openpyxl
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'openpyxl' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('openpyxl')
-        import openpyxl
-      else:
-        return
-
-    try:
-      import pandas as pd
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'pandas' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('pandas')
-        import pandas as pd
-      else:
-        return
-
     thresholds = []
     if self.ui.SUV2_5.checkState() > 0:
       thresholds.append('suv2.5')
