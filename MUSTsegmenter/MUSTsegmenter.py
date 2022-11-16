@@ -5,7 +5,6 @@ import vtkSlicerSegmentationsModuleLogicPython as segmentLogic
 from collections import deque
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-from radiomics import featureextractor
 
 
 #
@@ -68,13 +67,13 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
 
     self.initializeParameterNode()
-    self.checkPythonLibs()
+    self.checkRequirements()
 
-  def checkPythonLibs(self):
+  def checkRequirements(self):
     try:
       import openpyxl
     except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'openpyxl' Python package. "
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'openpyxl' Python package. "
                                             "Click OK to install it now."):
         slicer.util.pip_install('openpyxl')
         import openpyxl
@@ -82,10 +81,17 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     try:
       import pandas as pd
     except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'pandas' Python package. "
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'pandas' Python package. "
                                             "Click OK to install it now."):
         slicer.util.pip_install('pandas')
         import pandas as pd
+
+    try:
+      from radiomics import featureextractor
+    except ModuleNotFoundError:
+      slicer.util.errorDisplay("MUST-segmenter requires the 'SlicerRadiomics' extension, please download it in the "
+                               "Extensions Manager.",
+                               "SlicerRadiomics required")
 
   def cleanup(self):
     self.removeObservers()
