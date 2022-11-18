@@ -476,6 +476,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that calculates the MATVs for the given threshold methods that are available in the scene
     """
+    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
     self.matvRows = []
     extractor = self.featureextractor.RadiomicsFeatureExtractor()
     extractor.disableAllFeatures()
@@ -499,6 +500,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
     volumeFilePath = f'{savePath}/MATV_patient_{self.patientID}.xlsx'
     volumeDf.to_excel(volumeFilePath, index=False)
+    qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
     slicer.util.infoDisplay(f'MATV calculations finished, MATVs stored at: {volumeFilePath}', 'MATVs extracted')
 
   def getRoisFilter(self, petRoisInfo, shape):
