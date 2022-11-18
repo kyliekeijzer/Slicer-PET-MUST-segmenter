@@ -17,7 +17,7 @@ This can be retrieved by drag and dropping files into the DICOM database or by i
    - (optional) Import avoidance regions and brain contours as ***[Segmentations](https://slicer.readthedocs.io/en/latest/user_guide/modules/segmentations.html#import-an-existing-segmentation-from-volume-file)***.
 
 2. [Load patient data into the scene](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-loading)  
-Load ***one*** patient's PET and CT images (with or without avoidance regions and brain contours).  
+Load ***ONE*** patient's PET and CT images (with or without avoidance regions and brain contours).  
 ![](screenshots/1.png?raw=true "")  
 3. Display PET as overlay on CT
 ![](screenshots/3.png?raw=true "")  
@@ -53,7 +53,7 @@ b. ![](screenshots/5.png?raw=true "")
      a. Make sure the following segmentation methods are *additionally* selected:  
         *SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST*  
    - **Brain region based**  
-     a. Provide a brain segmentation into the scene as a segmentation  
+     a. Provide or create a brain segmentation
         ![](screenshots/22.png?raw=true "")  
      b. Rename the brain segmentation node to 'brain'  
         ![](screenshots/23.png?raw=true "") &rarr; ![](screenshots/7.png?raw=true "")  
