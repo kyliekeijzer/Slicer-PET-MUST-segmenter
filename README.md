@@ -28,24 +28,26 @@ b. ![](screenshots/5.png?raw=true "")
 ![](screenshots/6.png?raw=true "")  
 
 ### <span style="color:#DA461C">Segmentation with MUST-segmenter</span>
-1. Identify tumors by seed placing (Markups)  
-   ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
-2. Choose segmentation method(s):  
+1. Identify tumors by seed placing (Points)  
+   ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
+3. Choose segmentation method(s):  
    ![](screenshots/10.png?raw=true "")  
    - Fixed thresholds: **SUV 2.5**, **SUV 3.0** and **SUV 4.0**  
    - **41% SUVmax**  
      a. Place regions of interest (ROIs) around the identified tumors (the seeds don't need to be removed)  
-        ![](screenshots/11.png?raw=true "") &rarr; ![](screenshots/12.png?raw=true "")  
+        ![](screenshots/11.png?raw=true "") &rarr; ![](screenshots/41.png?raw=true "") &rarr;  
+     (click on an image slice to initialize the annotation ROI)  
+        ![](screenshots/12.png?raw=true "")  
      b. (optional) Take a threshold for each individual ROI  
         ![](screenshots/13.png?raw=true "")  
    - Liver-based thresholds: **Liver SUVmax** and **PERCIST**  
-     a. Create a new MarkupsFiducial and rename it to 'liver'  
-        ![](screenshots/14.png?raw=true "") &rarr; ![](screenshots/15.png?raw=true "") &rarr; ![](screenshots/16.png?raw=true "") &rarr; ![](screenshots/17.png?raw=true "")  
+     a. Create a new Point List and rename it to 'liver'  
+        ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/16.png?raw=true "") &rarr; ![](screenshots/17.png?raw=true "")  
      b. Place the seed in the right lobe of the liver  
         ![](screenshots/18.png?raw=true "")  
      c. Create the liver sphere  
         ![](screenshots/19.png?raw=true "") &rarr; ![](screenshots/20.png?raw=true "")  
-     d. *Delete* the 'liver' MarkupsFiducial!  
+     d. *Delete* the 'liver' Point List!  
         ![](screenshots/21.png?raw=true "")  
    - Majority Voting: **MV2** and **MV3**  
      a. Make sure the following segmentation methods are *additionally* selected:  
@@ -55,9 +57,9 @@ b. ![](screenshots/5.png?raw=true "")
         ![](screenshots/22.png?raw=true "")  
      b. Rename the brain segmentation node to 'brain'  
         ![](screenshots/23.png?raw=true "") &rarr; ![](screenshots/7.png?raw=true "")  
-3. Perform segmentation and wait for the results!  
+4. Perform segmentation and wait for the results!  
    ![](screenshots/24.png?raw=true "") &rarr; ![](screenshots/25.png?raw=true "")  
-4. Save the segmentations in the desired format  
+5. Save the segmentations in the desired format  
    ![](screenshots/33.png?raw=true "") &rarr; ![](screenshots/34.png?raw=true "")  
    Before exporting to NRRD or NIFTI, the segmentation node needs to be converted to a labelmap node!  
    ![](screenshots/35.png?raw=true "")  
