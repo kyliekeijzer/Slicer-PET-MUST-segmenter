@@ -53,7 +53,7 @@ b. ![](screenshots/5.png?raw=true "")
      a. Make sure the following segmentation methods are *additionally* selected:  
         *SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST*  
    - **Brain region based**  
-     a. Provide or create a brain segmentation
+     a. Provide or create a brain segmentation  
         ![](screenshots/22.png?raw=true "")  
      b. Rename the brain segmentation node to 'brain'  
         ![](screenshots/23.png?raw=true "") &rarr; ![](screenshots/7.png?raw=true "")  
