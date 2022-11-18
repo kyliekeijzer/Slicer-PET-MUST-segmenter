@@ -67,31 +67,6 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
 
     self.initializeParameterNode()
-    self.checkRequirements()
-
-  def checkRequirements(self):
-    try:
-      import openpyxl
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'openpyxl' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('openpyxl')
-        import openpyxl
-
-    try:
-      import pandas as pd
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'pandas' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('pandas')
-        import pandas as pd
-
-    try:
-      from radiomics import featureextractor
-    except ModuleNotFoundError:
-      slicer.util.errorDisplay("MUST-segmenter requires the 'SlicerRadiomics' extension, please download it in the "
-                               "Extensions Manager.",
-                               "SlicerRadiomics required")
 
   def cleanup(self):
     self.removeObservers()
@@ -269,6 +244,34 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
     self.segmentationPerformed = False
+    self.checkRequirements()
+
+  def checkRequirements(self):
+    try:
+      import openpyxl
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'openpyxl' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('openpyxl')
+        import openpyxl
+
+    try:
+      import pandas as pd
+      self.pd = pd
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'pandas' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('pandas')
+        import pandas as pd
+        self.pd = pd
+
+    try:
+      from radiomics import featureextractor
+      self.featureextractor = featureextractor
+    except ModuleNotFoundError:
+      slicer.util.errorDisplay("MUST-segmenter requires the 'SlicerRadiomics' extension, please download it in the "
+                               "Extensions Manager.",
+                               "SlicerRadiomics required")
 
   def convertNodesToSegmentationNode(self, originalNodes, fromLabelMap, fromStorage, method, thresholdDescr):
     """
@@ -474,7 +477,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     Method that calculates the MATVs for the given threshold methods that are available in the scene
     """
     self.matvRows = []
-    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor = self.featureextractor.RadiomicsFeatureExtractor()
     extractor.disableAllFeatures()
     extractor.enableFeaturesByName(shape=['MeshVolume'])
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
@@ -492,7 +495,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         'Voxel Volume': matv[0],
         'Mesh Volume': matv[1]
       })
-    volumeDf = pd.DataFrame(self.matvRows)
+    volumeDf = self.pd.DataFrame(self.matvRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
     volumeFilePath = f'{savePath}/MATV_patient_{self.patientID}.xlsx'
     volumeDf.to_excel(volumeFilePath, index=False)
