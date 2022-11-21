@@ -884,8 +884,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     for fidList in fidLists:
       numFids = fidList.GetNumberOfFiducials()
       for i in range(numFids):
-        zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
-        seedCoordinates.append(zxyCoords)
+        isVisible = fidList.GetNthFiducialVisibility(i)
+        if isVisible:
+          zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
+          seedCoordinates.append(zxyCoords)
 
     return seedCoordinates
 

@@ -1,6 +1,6 @@
 # Sample Data
 
-This sample dataset contains a PET/CT DICOM series with an avoidance regions example. The data is retrieved from [The Cancer Imaging Archive (TCIA)](https://www.cancerimagingarchive.net/)  
+This sample dataset ("Sample Data.zip") contains a PET/CT DICOM series with an avoidance regions example. The data is retrieved from [The Cancer Imaging Archive (TCIA)](https://www.cancerimagingarchive.net/)  
 
 This patient is diagnosed with Metastatic Adenocarcinoma, resulting in several tumors in the body.
 

@@ -1,16 +1,19 @@
-# <span style="color:#DA461C">MUST-segmenter</span>
+# MUST-segmenter
 ***MU***ltiple ***S***UV ***T***hresholding (MUST)-segmenter is a semi-automated PET image segmentation tool that enables delineation of 
 multiple lesions at once, and extracts metabolic active tumor volume (MATV).
 
 ![](screenshots/Slicer-MUST-segmenter_screenshot.png?raw=true "MUST-segmenter screenshot")  
 
-## <span style="color:#FFFF00">1. Installation</span>
+## 1. Installation
 1. Download 3D Slicer as described [here](https://slicer.readthedocs.io/en/latest/user_guide/getting_started.html#installing-3d-slicer).  
 2. Download the '**SlicerRadiomics**' extension from the Extensions Manager as described [here](https://slicer.readthedocs.io/en/latest/user_guide/extensions_manager.html#install-extensions).
 
-## <span style="color:#FFFF00">2. Tutorial</span>
+## 2. Tutorial
 
-### <span style="color:#DA461C">Preparation</span>
+#### Sample Data
+If needed, a sample dataset can be found [here](https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/tree/master/Sample%20Data).
+
+### Preparation
 
 1. [Import PET and CT DICOM series into 3D Slicer ](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-import)  
 This can be retrieved by drag and dropping files into the DICOM database or by importing files into the DICOM database.
@@ -27,7 +30,7 @@ b. ![](screenshots/5.png?raw=true "")
 5. Go to MUST-segmenter  
 ![](screenshots/6.png?raw=true "")  
 
-### <span style="color:#DA461C">Segmentation with MUST-segmenter</span>
+### Segmentation with MUST-segmenter
 1. Identify tumors by seed placing (Points)  
    ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
 3. Choose segmentation method(s):  
@@ -64,7 +67,7 @@ b. ![](screenshots/5.png?raw=true "")
    Before exporting to NRRD or NIFTI, the segmentation node needs to be converted to a labelmap node!  
    ![](screenshots/35.png?raw=true "")  
 
-### <span style="color:#DA461C">MATV extraction</span>
+### MATV extraction
 1. Select the segmentation results that are present in the scene  
 ![](screenshots/10.png?raw=true "")  
 2. Compute MATV  
@@ -72,7 +75,7 @@ b. ![](screenshots/5.png?raw=true "")
 3. Files are stored at the reported location  
 ![](screenshots/28.png?raw=true "")
 
-### <span style="color:#DA461C">Optional functionalities</span>
+### Optional functionalities
 1. **Remove avoidance regions**  
    a. Load avoidance regions as segmentations  
       ![](screenshots/30.png?raw=true "") ![](screenshots/29.png?raw=true "")  
@@ -91,8 +94,8 @@ b. ![](screenshots/5.png?raw=true "")
    c. Permanently save the position changes  
       ![](screenshots/39.png?raw=true "")  
 
-## <span style="color:#FFFF00">3. Notes</span>
-### <span style="color:#DA461C">Segmentation</span>
+## 3. Notes
+### Segmentation
 - Make sure the PET series name contains 'pet' or 'PET'  
 ![](screenshots/2.png?raw=true "")  
 - Make sure the brain contour is named 'brain'  
@@ -100,13 +103,13 @@ b. ![](screenshots/5.png?raw=true "")
 - Make sure the 'liverSphere' is present for liver-based segmentation methods  
 ![](screenshots/26.png?raw=true "")  
 - Make sure only ***one*** patient is loaded into the scene  
-### <span style="color:#DA461C">MATV extraction</span>
+### MATV extraction
 - Make sure all segmentation results of the selected methods are present in the scene
 
 
-## <span style="color:#FFFF00">4. License</span>
+## 4. License
 See LICENSE
 
-## <span style="color:#FFFF00">5. Contact</span>
+## 5. Contact
 For any inquiries according to usage or bugs, please contact Kylie Keijzer ([k.keijzer@umcg.nl](mailto:k.keijzer@umcg.nl?subject=MUST-segmenter))
 
