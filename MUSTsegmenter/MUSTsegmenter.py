@@ -968,8 +968,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 class MUSTsegmenterTest(ScriptedLoadableModuleTest):
   def setUp(self):
     slicer.mrmlScene.Clear(0)
-    self.tempDataDir = "\\\\zkh\\dfs\\Gebruikers14\\KeijzerK\\Data\\Downloads"
-    # self.tempDataDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTest')
+    self.tempDataDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTest')
     self.tempDicomDatabaseDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTestDicom')
 
     # segmentation parameters
@@ -1007,8 +1006,8 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
 
   def loadTestData(self):
     zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
-    zipFilePath = self.tempDataDir + '\\dicom1.zip'
-    zipFileData = self.tempDataDir + '\\dicom1'
+    zipFilePath = self.tempDataDir + '\\dicom.zip'
+    zipFileData = self.tempDataDir + '\\dicom'
 
     if not os.access(self.tempDataDir, os.F_OK):
       os.mkdir(self.tempDataDir)
