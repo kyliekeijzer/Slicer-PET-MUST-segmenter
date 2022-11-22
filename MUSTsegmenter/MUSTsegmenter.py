@@ -1007,8 +1007,8 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
 
   def loadTestData(self):
     zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
-    zipFilePath = self.tempDataDir + '\\dicom.zip'
-    zipFileData = self.tempDataDir + '\\dicom'
+    zipFilePath = os.path.join(self.tempDataDir, 'dicom.zip')
+    zipFileData = os.path.join(self.tempDataDir, 'dicom')
 
     if not os.access(self.tempDataDir, os.F_OK):
       os.mkdir(self.tempDataDir)
@@ -1020,10 +1020,11 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
         import zipfile
         with zipfile.ZipFile(zipFilePath, 'r') as zipFile:
           zipFile.extractall(zipFileData)
-    DICOMUtils.importDicom(zipFileData + "\\Sample Data\\PET")
+    petPath = os.path.join(zipFileData, 'Sample Data', 'PET')
+    DICOMUtils.importDicom(petPath)
 
     # Load PET
-    dicomFiles = slicer.util.getFilesInDirectory(zipFileData + "\\Sample Data\\PET")
+    dicomFiles = slicer.util.getFilesInDirectory(petPath)
     loadablesByPlugin, loadEnabled = DICOMUtils.getLoadablesFromFileLists([dicomFiles], ['DICOMScalarVolumePlugin'])
     loadedNodeIDs = DICOMUtils.loadLoadables(loadablesByPlugin)
     imageNode = slicer.mrmlScene.GetNodeByID(loadedNodeIDs[0])
@@ -1046,11 +1047,12 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
     imageNode.SetVoxelValueUnits(units)
 
     # load seeds and ROIs
-    slicer.util.loadMarkups(zipFileData + "\\Sample Data\\seed.mrk.json")
+    sampleDataPath = os.path.join(zipFileData, 'Sample Data')
+    slicer.util.loadMarkups(os.path.join(sampleDataPath, 'seed.mrk.json'))
     import json
     roiNames = ['R', 'R_1', 'R_2', 'R_3']
     for r in roiNames:
-      rObj = open(zipFileData + "\\Sample Data\\" + r + ".json")
+      rObj = open(os.path.join(sampleDataPath, r + '.json'))
       coords = json.load(rObj)
       roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
       roi.SetName(r)
@@ -1058,6 +1060,6 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       center = list(coords['center'])
       roi.SetXYZ(center[0], center[1], center[2])
     # load liverSphere
-    liverSphere = slicer.util.loadSegmentation(zipFileData + "\\Sample Data\\liverSphere.seg.vtm")
+    liverSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'liverSphere.seg.vtm'))
     liverSphere.SetName('liverSphere')
 
