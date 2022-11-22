@@ -2,10 +2,10 @@ import os, datetime, traceback, pydicom, qt, slicer, vtk, sitkUtils
 import numpy as np
 import SimpleITK as sitk
 import vtkSlicerSegmentationsModuleLogicPython as segmentLogic
+from DICOMLib import DICOMUtils
 from collections import deque
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-from radiomics import featureextractor
 
 
 #
@@ -21,7 +21,7 @@ class MUSTsegmenter(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Kylie Keijzer (University Medical Center Groningen, The Netherlands)"]
     self.parent.helpText = """
-    Please refer to https://github.com/kyliekeijzer/Slicer-MUST-segmenter
+    Please refer to https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter
     """
     self.parent.acknowledgementText = """
     This segmentation extension was developed by Kylie Keijzer, 
@@ -69,24 +69,6 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
 
     self.initializeParameterNode()
-    self.checkPythonLibs()
-
-  def checkPythonLibs(self):
-    try:
-      import openpyxl
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'openpyxl' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('openpyxl')
-        import openpyxl
-
-    try:
-      import pandas as pd
-    except ModuleNotFoundError:
-      if slicer.util.confirmOkCancelDisplay("Extraction of MATV requires the 'pandas' Python package. "
-                                            "Click OK to install it now."):
-        slicer.util.pip_install('pandas')
-        import pandas as pd
 
   def cleanup(self):
     self.removeObservers()
@@ -274,6 +256,34 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
     self.segmentationPerformed = False
+    self.checkRequirements()
+
+  def checkRequirements(self):
+    try:
+      import openpyxl
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'openpyxl' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('openpyxl')
+        import openpyxl
+
+    try:
+      import pandas as pd
+      self.pd = pd
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'pandas' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('pandas')
+        import pandas as pd
+        self.pd = pd
+
+    try:
+      from radiomics import featureextractor
+      self.featureextractor = featureextractor
+    except ModuleNotFoundError:
+      slicer.util.errorDisplay("MUST-segmenter requires the 'SlicerRadiomics' extension, please download it in the "
+                               "Extensions Manager.",
+                               "SlicerRadiomics required")
 
   def convertNodesToSegmentationNode(self, originalNodes, fromLabelMap, fromStorage, method, thresholdDescr):
     """
@@ -478,8 +488,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that calculates the MATVs for the given threshold methods that are available in the scene
     """
+    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
     self.matvRows = []
+
     extractor = self.createExtractor(False)
+    extractor.disableAllFeatures()
+    extractor.enableFeaturesByName(shape=['MeshVolume'])
+
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
@@ -495,10 +510,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         'Voxel Volume': matv[0],
         'Mesh Volume': matv[1]
       })
-    volumeDf = pd.DataFrame(self.matvRows)
+    volumeDf = self.pd.DataFrame(self.matvRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
     volumeFilePath = f'{savePath}/MATV_patient_{self.patientID}.xlsx'
     volumeDf.to_excel(volumeFilePath, index=False)
+    qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
     slicer.util.infoDisplay(f'MATV calculations finished, MATVs stored at: {volumeFilePath}', 'MATVs extracted')
 
   def extractFeatures(self, thresholds):
@@ -523,7 +539,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       featuresRow.update(featureVector)
       featuresRows.append(featuresRow)
 
-    featuresDf = pd.DataFrame(featuresRows)
+    featuresDf = self.pd.DataFrame(featuresRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
     volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}.xlsx'
     featuresDf.to_excel(volumeFilePath, index=False)
@@ -532,7 +548,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
 
   def createExtractor(self, allFeatures):
-    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor = self.featureextractor.RadiomicsFeatureExtractor()
     extractor.disableAllFeatures()
     if allFeatures:
       shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Compactness1', 'Compactness2', 'Elongation', 'Flatness',
@@ -929,8 +945,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     for fidList in fidLists:
       numFids = fidList.GetNumberOfFiducials()
       for i in range(numFids):
-        zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
-        seedCoordinates.append(zxyCoords)
+        isVisible = fidList.GetNthFiducialVisibility(i)
+        if isVisible:
+          zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
+          seedCoordinates.append(zxyCoords)
 
     return seedCoordinates
 
@@ -973,11 +991,12 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     roisCoords = {}
     for i, roi in enumerate(ROIs):
-      center, radius = self.getRoiCoord(petVolume, roi)
-      roisCoords[i] = {
-        'center': center,
-        'radius': radius
-      }
+      if roi.GetAnnotationLineDisplayNode().GetVisibility() == 1:
+        center, radius = self.getRoiCoord(petVolume, roi)
+        roisCoords[i] = {
+          'center': center,
+          'radius': radius
+        }
 
     return roisCoords
 
@@ -1001,3 +1020,106 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     radius = np.subtract(upper, center).tolist()
 
     return center, radius
+
+#
+# SelfTest for MUSTsegmenter
+#
+
+
+class MUSTsegmenterTest(ScriptedLoadableModuleTest):
+  def setUp(self):
+    slicer.mrmlScene.Clear(0)
+    self.tempDataDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTest')
+    self.tempDicomDatabaseDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTestDicom')
+
+    # segmentation parameters
+    self.segmentationLogic = MUSTsegmenterLogic()
+    self.organSegments = None
+    self.suvPerRoi = False
+    self.roiFilter = False
+    self.segmentationColors = {
+      'suv2.5': [0.12, 0.55, 0.18],
+      'suv3.0': [0.0, 0.8, 0.2],
+      'suv4.0': [0.55, 0.82, 0.35],
+      '41suvMax': [0.22, 0.08, 0.94],
+      'liverSUVmax': [0.08, 0.37, 0.94],
+      'PERCIST': [0.04, 0.60, 0.87],
+      'MV2': [0.65, 0.0, 0.0],
+      'MV3': [1.0, 0.48, 0.48]
+    }
+    self.segmentationMethods = ['suv2.5', 'suv3.0', 'suv4.0',
+                                '41suvMax', 'liverSUVmax', 'PERCIST',
+                                'MV2', 'MV3']
+
+  def runTest(self):
+    self.setUp()
+    self.testSegmentation()
+
+  def testSegmentation(self):
+    self.delayDisplay('Starting the test')
+    self.loadTestData()
+    self.performSegmentationTests()
+
+  def performSegmentationTests(self):
+    self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
+                                               self.roiFilter, self.segmentationColors)
+    self.segmentationLogic.calulateMATV(self.segmentationMethods)
+
+  def loadTestData(self):
+    zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
+    zipFilePath = os.path.join(self.tempDataDir, 'dicom.zip')
+    zipFileData = os.path.join(self.tempDataDir, 'dicom')
+
+    if not os.access(self.tempDataDir, os.F_OK):
+      os.mkdir(self.tempDataDir)
+    if not os.access(zipFileData, os.F_OK):
+      os.mkdir(zipFileData)
+      if not os.path.isfile(zipFilePath):
+        slicer.util.downloadAndExtractArchive(zipUrl, zipFilePath, zipFileData)
+      else:
+        import zipfile
+        with zipfile.ZipFile(zipFilePath, 'r') as zipFile:
+          zipFile.extractall(zipFileData)
+    petPath = os.path.join(zipFileData, 'Sample Data', 'PET')
+    DICOMUtils.importDicom(petPath)
+
+    # Load PET
+    dicomFiles = slicer.util.getFilesInDirectory(petPath)
+    loadablesByPlugin, loadEnabled = DICOMUtils.getLoadablesFromFileLists([dicomFiles], ['DICOMScalarVolumePlugin'])
+    loadedNodeIDs = DICOMUtils.loadLoadables(loadablesByPlugin)
+    imageNode = slicer.mrmlScene.GetNodeByID(loadedNodeIDs[0])
+
+    suvNormalizationFactor = 0.00040166400000000007
+    quantity = slicer.vtkCodedEntry()
+    quantity.SetFromString('CodeValue:126400|CodingSchemeDesignator:DCM|CodeMeaning:Standardized Uptake Value')
+    units = slicer.vtkCodedEntry()
+    units.SetFromString(
+      'CodeValue:{SUVbw}g/ml|CodingSchemeDesignator:UCUM|CodeMeaning:Standardized Uptake Value body weight')
+    multiplier = vtk.vtkImageMathematics()
+    multiplier.SetOperationToMultiplyByK()
+    multiplier.SetConstantK(suvNormalizationFactor)
+    multiplier.SetInput1Data(imageNode.GetImageData())
+    multiplier.Update()
+    imageNode.GetImageData().DeepCopy(multiplier.GetOutput())
+    imageNode.GetVolumeDisplayNode().SetWindowLevel(6, 3)
+    imageNode.GetVolumeDisplayNode().SetAndObserveColorNodeID('vtkMRMLColorTableNodeInvertedGrey')
+    imageNode.SetVoxelValueQuantity(quantity)
+    imageNode.SetVoxelValueUnits(units)
+
+    # load seeds and ROIs
+    sampleDataPath = os.path.join(zipFileData, 'Sample Data')
+    slicer.util.loadMarkups(os.path.join(sampleDataPath, 'seed.mrk.json'))
+    import json
+    roiNames = ['R', 'R_1', 'R_2', 'R_3']
+    for r in roiNames:
+      rObj = open(os.path.join(sampleDataPath, r + '.json'))
+      coords = json.load(rObj)
+      roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
+      roi.SetName(r)
+      roi.SetRadiusXYZ(list(coords['radius']))
+      center = list(coords['center'])
+      roi.SetXYZ(center[0], center[1], center[2])
+    # load liverSphere
+    liverSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'liverSphere.seg.vtm'))
+    liverSphere.SetName('liverSphere')
+
