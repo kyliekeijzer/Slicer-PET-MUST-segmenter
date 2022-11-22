@@ -21,7 +21,7 @@ class MUSTsegmenter(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Kylie Keijzer (University Medical Center Groningen, The Netherlands)"]
     self.parent.helpText = """
-    Please refer to https://github.com/kyliekeijzer/Slicer-MUST-segmenter
+    Please refer to https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter
     """
     self.parent.acknowledgementText = """
     This segmentation extension was developed by Kylie Keijzer, 
@@ -931,11 +931,12 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     roisCoords = {}
     for i, roi in enumerate(ROIs):
-      center, radius = self.getRoiCoord(petVolume, roi)
-      roisCoords[i] = {
-        'center': center,
-        'radius': radius
-      }
+      if roi.GetAnnotationLineDisplayNode().GetVisibility() == 1:
+        center, radius = self.getRoiCoord(petVolume, roi)
+        roisCoords[i] = {
+          'center': center,
+          'radius': radius
+        }
 
     return roisCoords
 
