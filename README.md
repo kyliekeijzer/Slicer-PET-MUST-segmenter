@@ -15,12 +15,12 @@ If needed, a sample dataset can be found [here](https://github.com/kyliekeijzer/
 
 ### Preparation
 
-1. [Import PET and CT DICOM series into 3D Slicer ](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-import)  
+1. [Import PET and (optional) CT DICOM series into 3D Slicer ](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-import)  
 This can be retrieved by drag and dropping files into the DICOM database or by importing files into the DICOM database.
    - (optional) Import avoidance regions and brain contours as ***[Segmentations](https://slicer.readthedocs.io/en/latest/user_guide/modules/segmentations.html#import-an-existing-segmentation-from-volume-file)***.
 
 2. [Load patient data into the scene](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-loading)  
-Load ***ONE*** patient's PET and CT images (with or without avoidance regions and brain contours).  
+Load ***ONE*** patient's PET (and CT) images (with or without avoidance regions and brain contours).  
 ![](screenshots/1.png?raw=true "")  
 3. Display PET as overlay on CT
 ![](screenshots/3.png?raw=true "")  
@@ -106,10 +106,12 @@ b. ![](screenshots/5.png?raw=true "")
 ### MATV extraction
 - Make sure all segmentation results of the selected methods are present in the scene
 
+## 4. SelfTest
+A SelfTest (MUSTSegmenter) is available under the SelfTests and utilizes the Sample Data.
 
-## 4. License
+## 5. License
 See LICENSE
 
-## 5. Contact
+## 6. Contact
 For any inquiries according to usage or bugs, please contact Kylie Keijzer ([k.keijzer@umcg.nl](mailto:k.keijzer@umcg.nl?subject=MUST-segmenter))
 

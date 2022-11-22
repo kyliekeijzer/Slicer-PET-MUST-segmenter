@@ -2,6 +2,7 @@ import os, datetime, traceback, pydicom, qt, slicer, vtk, sitkUtils
 import numpy as np
 import SimpleITK as sitk
 import vtkSlicerSegmentationsModuleLogicPython as segmentLogic
+from DICOMLib import DICOMUtils
 from collections import deque
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
@@ -958,3 +959,105 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     radius = np.subtract(upper, center).tolist()
 
     return center, radius
+
+#
+# SelfTest for MUSTsegmenter
+#
+
+
+class MUSTsegmenterTest(ScriptedLoadableModuleTest):
+  def setUp(self):
+    slicer.mrmlScene.Clear(0)
+    self.tempDataDir = "\\\\zkh\\dfs\\Gebruikers14\\KeijzerK\\Data\\Downloads"
+    # self.tempDataDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTest')
+    self.tempDicomDatabaseDir = os.path.join(slicer.app.temporaryPath, 'MUSTSegmenterTestDicom')
+
+    # segmentation parameters
+    self.segmentationLogic = MUSTsegmenterLogic()
+    self.organSegments = None
+    self.suvPerRoi = False
+    self.roiFilter = False
+    self.segmentationColors = {
+      'suv2.5': [0.12, 0.55, 0.18],
+      'suv3.0': [0.0, 0.8, 0.2],
+      'suv4.0': [0.55, 0.82, 0.35],
+      '41suvMax': [0.22, 0.08, 0.94],
+      'liverSUVmax': [0.08, 0.37, 0.94],
+      'PERCIST': [0.04, 0.60, 0.87],
+      'MV2': [0.65, 0.0, 0.0],
+      'MV3': [1.0, 0.48, 0.48]
+    }
+    self.segmentationMethods = ['suv2.5', 'suv3.0', 'suv4.0',
+                                '41suvMax', 'liverSUVmax', 'PERCIST',
+                                'MV2', 'MV3']
+
+  def runTest(self):
+    self.setUp()
+    self.testSegmentation()
+
+  def testSegmentation(self):
+    self.delayDisplay('Starting the test')
+    self.loadTestData()
+    self.performSegmentationTests()
+
+  def performSegmentationTests(self):
+    self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
+                                               self.roiFilter, self.segmentationColors)
+    self.segmentationLogic.calulateMATV(self.segmentationMethods)
+
+  def loadTestData(self):
+    zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
+    zipFilePath = self.tempDataDir + '\\dicom1.zip'
+    zipFileData = self.tempDataDir + '\\dicom1'
+
+    if not os.access(self.tempDataDir, os.F_OK):
+      os.mkdir(self.tempDataDir)
+    if not os.access(zipFileData, os.F_OK):
+      os.mkdir(zipFileData)
+      if not os.path.isfile(zipFilePath):
+        slicer.util.downloadAndExtractArchive(zipUrl, zipFilePath, zipFileData)
+      else:
+        import zipfile
+        with zipfile.ZipFile(zipFilePath, 'r') as zipFile:
+          zipFile.extractall(zipFileData)
+    DICOMUtils.importDicom(zipFileData + "\\Sample Data\\PET")
+
+    # Load PET
+    dicomFiles = slicer.util.getFilesInDirectory(zipFileData + "\\Sample Data\\PET")
+    loadablesByPlugin, loadEnabled = DICOMUtils.getLoadablesFromFileLists([dicomFiles], ['DICOMScalarVolumePlugin'])
+    loadedNodeIDs = DICOMUtils.loadLoadables(loadablesByPlugin)
+    imageNode = slicer.mrmlScene.GetNodeByID(loadedNodeIDs[0])
+
+    suvNormalizationFactor = 0.00040166400000000007
+    quantity = slicer.vtkCodedEntry()
+    quantity.SetFromString('CodeValue:126400|CodingSchemeDesignator:DCM|CodeMeaning:Standardized Uptake Value')
+    units = slicer.vtkCodedEntry()
+    units.SetFromString(
+      'CodeValue:{SUVbw}g/ml|CodingSchemeDesignator:UCUM|CodeMeaning:Standardized Uptake Value body weight')
+    multiplier = vtk.vtkImageMathematics()
+    multiplier.SetOperationToMultiplyByK()
+    multiplier.SetConstantK(suvNormalizationFactor)
+    multiplier.SetInput1Data(imageNode.GetImageData())
+    multiplier.Update()
+    imageNode.GetImageData().DeepCopy(multiplier.GetOutput())
+    imageNode.GetVolumeDisplayNode().SetWindowLevel(6, 3)
+    imageNode.GetVolumeDisplayNode().SetAndObserveColorNodeID('vtkMRMLColorTableNodeInvertedGrey')
+    imageNode.SetVoxelValueQuantity(quantity)
+    imageNode.SetVoxelValueUnits(units)
+
+    # load seeds and ROIs
+    slicer.util.loadMarkups(zipFileData + "\\Sample Data\\seed.mrk.json")
+    import json
+    roiNames = ['R', 'R_1', 'R_2', 'R_3']
+    for r in roiNames:
+      rObj = open(zipFileData + "\\Sample Data\\" + r + ".json")
+      coords = json.load(rObj)
+      roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
+      roi.SetName(r)
+      roi.SetRadiusXYZ(list(coords['radius']))
+      center = list(coords['center'])
+      roi.SetXYZ(center[0], center[1], center[2])
+    # load liverSphere
+    liverSphere = slicer.util.loadSegmentation(zipFileData + "\\Sample Data\\liverSphere.seg.vtm")
+    liverSphere.SetName('liverSphere')
+
