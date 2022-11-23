@@ -66,7 +66,8 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.performSegmentationButton.connect('clicked(bool)', self.onSegmentationButton)
     self.ui.computeMATVButton.connect('clicked(bool)', self.onComputeMatvButton)
     self.ui.extractPETFeaturesButton.connect('clicked(bool)', self.onExtractPetFeaturesButton)
-    self.ui.liverSphereButton.connect('clicked(bool)', self.onLiverSphereButton)
+    self.ui.createVoiButton.connect('clicked(bool)', self.onCreateSphereButton)
+    self.ui.extractVOIsMetricsButton.connect('clicked(bool)', self.onExtractVoiMetricsButton)
 
     self.initializeParameterNode()
 
@@ -205,8 +206,12 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.segmentationMethods = thresholds
     return True
 
-  def onLiverSphereButton(self):
-    self.segmentationLogic.createSphere('liver')
+  def onCreateSphereButton(self):
+    diameter = int(self.ui.voiSize.value)
+    self.segmentationLogic.createSphere(diameter, "VOI")
+
+  def onExtractVoiMetricsButton(self):
+    self.segmentationLogic.extractVOIsMetrics()
 
   def onSegmentationButton(self):
     if self.checkValidParameters():
@@ -217,11 +222,9 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     thresholds = self.getSelectedThresholds()
     self.segmentationLogic.calulateMATV(thresholds)
 
-
   def onExtractPetFeaturesButton(self):
     thresholds = self.getSelectedThresholds()
     self.segmentationLogic.extractFeatures(thresholds)
-
 
   def getSelectedThresholds(self):
     thresholds = []
@@ -255,7 +258,6 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
-    self.segmentationPerformed = False
     self.checkRequirements()
 
   def checkRequirements(self):
@@ -278,6 +280,20 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         self.pd = pd
 
     try:
+      from torch.nn import Conv3d
+      from torch import tensor
+      self.Conv3d = Conv3d
+      self.torchTensor = tensor
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("MUST-segmenter requires the 'PyTorch' Python package. "
+                                            "Click OK to install it now."):
+        slicer.util.pip_install('torch')
+        from torch.nn import Conv3d
+        from torch import tensor
+        self.Conv3d = Conv3d
+        self.torchTensor = tensor
+
+    try:
       from radiomics import featureextractor
       self.featureextractor = featureextractor
     except ModuleNotFoundError:
@@ -293,11 +309,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # create segmentations node
     segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
 
-    if method == 'liver':
+    if method == 'VOI' or method == 'peakSphere':
       colors = [0.24, 0.42, 0.86]
-      segmentationNode.SetName('liverSphere')
+      thickness = 1
+      segmentationNode.SetName(f'{method}_')
     else:
       colors = self.segmentationColors[thresholdDescr]
+      thickness = 4
       segmentationNode.SetName('{0}_segmentation_{1}'.format(self.patientID, thresholdDescr))
     segmentations = segmentationNode.GetSegmentation()
 
@@ -319,7 +337,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       segmentations.AddSegment(vtkSegment)
 
     # apply matrix transform to position the segmentation result
-    if not fromLabelMap and method != 'liver':
+    if not fromLabelMap and method != 'VOI':
       transformMatrix = vtk.vtkMatrix4x4()
       transformMatrix.SetElement(0, 0, -1.0)
       transformMatrix.SetElement(1, 1, -1.0)
@@ -328,7 +346,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # create display node for segmentation result
     displayNode = slicer.vtkMRMLSegmentationDisplayNode()
     displayNode.SetOpacity2DFill(0.35)
-    displayNode.SetSliceIntersectionThickness(4)
+    displayNode.SetSliceIntersectionThickness(thickness)
     slicer.mrmlScene.AddNode(displayNode)
     segmentationNode.SetAndObserveDisplayNodeID(displayNode.GetID())
     segmentationNode.CreateClosedSurfaceRepresentation()
@@ -347,11 +365,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         break
     return selectedVolume
 
-  def getLiverSphereSuvValues(self, refVolume, suvImageArray):
+  def getSphereSuvValues(self, refVolume, suvImageArray, voiName):
     """
-    Method that retrieves all the SUVs inside the liverSphere
+    Method that retrieves all the SUVs inside the given VOI
     """
-    sphere = slicer.util.getNode('liverSphere')
+    sphere = slicer.util.getNode(voiName)
     sphere.SetReferenceImageGeometryParameterFromVolumeNode(refVolume)
     labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
     slicer.modules.segmentations.logic().ExportVisibleSegmentsToLabelmapNode(sphere, labelmapVolumeNode,
@@ -359,30 +377,23 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     sphereMask = slicer.util.arrayFromVolume(labelmapVolumeNode)
     slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
 
-    liverSphereValues = suvImageArray[sphereMask > 0.0]
+    sphereValues = suvImageArray[sphereMask > 0.0]
 
-    return liverSphereValues
+    return sphereValues
 
-  def createSphere(self, method):
+  def createSphere(self, diameter, nodeName):
     """
     Method that creates a sphere model node, for the given method
     """
     sphere = vtk.vtkSphereSource()
-    # Initial positioning of the sphere from the fiducial points
     centerPointCoord = [0.0, 0.0, 0.0]
-
-    if method == 'liver':
-      radius = 15
-      sphereName = 'liverSphere'
-      try:
-        liverMarkups = slicer.util.getNode(method)
-        liverMarkups.GetNthFiducialPosition(0, centerPointCoord)
-      except:
-        slicer.util.errorDisplay("No seed found with name or ID 'liver'")
-        return
-    else:
-      radius = 10
-      sphereName = 'sphere'
+    radius = diameter * 10 / 2
+    try:
+      markups = slicer.util.getNode(nodeName)
+      markups.GetNthFiducialPosition(0, centerPointCoord)
+    except:
+      slicer.util.errorDisplay(f"No seed found with name or ID '{nodeName}'")
+      return
 
     sphere.SetCenter(centerPointCoord)
     sphere.SetRadius(radius)
@@ -392,7 +403,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     # Create model node and add to scene
     model = slicer.vtkMRMLModelNode()
-    model.SetName(sphereName)
+    model.SetName(nodeName)
     model.SetAndObservePolyData(sphere.GetOutput())
     modelDisplay = slicer.vtkMRMLModelDisplayNode()
     modelDisplay.SetSliceIntersectionVisibility(True)
@@ -400,7 +411,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     model.SetAndObserveDisplayNodeID(modelDisplay.GetID())
     modelDisplay.SetInputPolyDataConnection(model.GetPolyDataConnection())
     slicer.mrmlScene.AddNode(model)
-    self.convertNodesToSegmentationNode([model], False, True, method, method)
+    self.convertNodesToSegmentationNode([model], False, True, nodeName, nodeName)
 
   def performSegmentation(self, organSegmentsNode, segmentationMethods, suvPerRoi, roiFilter, segmentationColors):
     """
@@ -481,7 +492,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
                   f'SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST'
 
     qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
-    self.segmentationPerformed = True
     slicer.util.infoDisplay(message, 'Segmentations created')
 
   def calulateMATV(self, thresholds):
@@ -491,10 +501,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
     self.matvRows = []
 
-    extractor = self.createExtractor(False)
-    extractor.disableAllFeatures()
-    extractor.enableFeaturesByName(shape=['MeshVolume'])
-
+    extractor = self.createExtractor('matv')
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
@@ -519,7 +526,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
   def extractFeatures(self, thresholds):
     featuresRows = []
-    extractor = self.createExtractor(True)
+    extractor = self.createExtractor('all')
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
@@ -546,11 +553,106 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     slicer.util.infoDisplay(f'PET feature extraction finished, features stored at: {volumeFilePath}',
                             'PET features extracted')
 
+  def extractVOIsMetrics(self):
+    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+    featuresRows = []
+    extractor = self.createExtractor('VOIs')
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+    suvImage = sitk.GetImageFromArray(self.suvMap)
+    suvImage.SetSpacing(pixelSpacing)
 
-  def createExtractor(self, allFeatures):
+    peakSphere, peakPoint, peakNode = self.createPeakSphere()
+    vois = slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode')
+    for voi in vois:
+      voiName = voi.GetName()
+      if voiName.startswith('VOI_'):
+        voiNode = slicer.util.getNode(voiName)
+        voiArray = self.getArrayFromSegmentationNode(self.petVolume, voiNode)
+        voiImage = sitk.GetImageFromArray(voiArray)
+        voiImage.SetSpacing(pixelSpacing)
+        featuresRow = {
+          'VOI': voiName
+        }
+        featureVector = extractor.execute(suvImage, voiImage)
+        for feature in featureVector.keys():
+          if feature.find('original') == 0:
+            value = float(featureVector[feature])
+            featureDesc = feature[9:].replace("firstorder", "SUV").replace("shape_", "")
+            if "Volume" in featureDesc:
+              featureDesc += " (cc)"
+              featuresRow[featureDesc] = value / 1000
+            else:
+              featuresRow[featureDesc] = value
+
+        # Calculate SUVpeak
+        voiSuv = self.suvMap.copy()
+        voiSuv[voiArray < 1.0] = 0.0
+        suvPeak = self.calculateSuvPeak(peakSphere, voiSuv)
+        slicer.mrmlScene.RemoveNode(peakPoint)
+        slicer.mrmlScene.RemoveNode(peakNode)
+        pos = list(featuresRow.keys()).index('SUV_Median') + 1
+        items = list(featuresRow.items())
+        items.insert(pos, ('SUV_Peak', suvPeak))
+        featuresRow = dict(items)
+
+        featuresRows.append(featuresRow)
+
+    featuresDf = self.pd.DataFrame(featuresRows)
+    savePath = "/".join(self.petSeriesPath.split('/')[:-1])
+    filePath = f'{savePath}/VOIs_metrics_patient_{self.patientID}.xlsx'
+    featuresDf.to_excel(filePath, index=False)
+    qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
+    slicer.util.infoDisplay(f'VOIs metrics calculated, metrics stored at: {filePath}',
+                            'VOIs metrics extracted')
+
+  def createPeakSphere(self):
+    pointListNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+    pointListNode.SetName("peakSphere")
+
+    bounds = [0, 0, 0, 0, 0, 0]
+    self.petVolume.GetRASBounds(bounds)
+    nodeCenter = [round((bounds[0] + bounds[1]) / 2), round((bounds[2] + bounds[3]) / 2), round((bounds[4] + bounds[5]) / 2)]
+    pointListNode.AddControlPoint(nodeCenter)
+    
+    self.createSphere(1.2, "peakSphere")
+    peakNode = slicer.util.getNode("peakSphere_")
+    peakArray = self.getArrayFromSegmentationNode(self.petVolume, peakNode)
+    slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(peakArray))
+    trimmedPeak = peakArray[slices]
+
+    return trimmedPeak, pointListNode, peakNode
+
+  def calculateSuvPeak(self, sphere, suvArray):
+    sphereShape = sphere.shape
+    sphereVolume = np.sum(sphere > 0)
+
+    # `suv_array` and `sphere` should be dimension (1, 1, z, y, x) for Conv3d layer
+    suvArrayDl = np.expand_dims(suvArray, 0)
+    suvArrayDl = np.expand_dims(suvArrayDl, 0)
+    sphereDl = np.expand_dims(sphere, 0)
+    sphereDl = np.expand_dims(sphereDl, 0)
+
+    # Map to tensor
+    suvArrayDl = self.torchTensor(suvArrayDl)
+    sphereDl = self.torchTensor(sphereDl)
+
+    model = self.Conv3d(in_channels=1, out_channels=1, kernel_size=sphereShape, stride=1, padding=0)
+
+    # Replace random Conv3d filter by sphere weights
+    modelDict = model.state_dict()
+    modelDict['weight'] = sphereDl
+    modelDict['bias'] = self.torchTensor([0])
+    model.load_state_dict(modelDict)
+
+    out = model(suvArrayDl.float())
+    out = out[0, 0].max() / sphereVolume
+
+    return out.item()
+
+  def createExtractor(self, method):
     extractor = self.featureextractor.RadiomicsFeatureExtractor()
     extractor.disableAllFeatures()
-    if allFeatures:
+    if method == 'all':
       shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Compactness1', 'Compactness2', 'Elongation', 'Flatness',
                        'LeastAxisLength', 'MajorAxisLength', 'Maximum2DDiameterColumn', 'Maximum2DDiameterRow',
                        'Maximum2DDiameterSlice', 'Maximum3DDiameter', 'MinorAxisLength', 'SphericalDisproportion',
@@ -560,8 +662,12 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
                             'RobustMeanAbsoluteDeviation',
                             'RootMeanSquared', 'Skewness', 'StandardDeviation', 'TotalEnergy', 'Uniformity', 'Variance']
       extractor.enableFeaturesByName(shape=shapeFeatures, firstorder=firstorderFeatures)
-    else:
+    elif method == 'matv':
       extractor.enableFeaturesByName(shape=['MeshVolume'])
+    elif method == 'VOIs':
+      shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Sphericity']
+      firstorderFeatures = ['Maximum', 'Minimum', 'Mean', 'Median', 'Kurtosis', 'Skewness']
+      extractor.enableFeaturesByName(firstorder=firstorderFeatures, shape=shapeFeatures)
     return extractor
 
   def getRoisFilter(self, petRoisInfo, shape):
@@ -697,9 +803,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that computes the cubic cm per pixel for the given PET DICOM series
     """
-    if not self.segmentationPerformed:
-      self.setPetDataParameters()
-      self.segmentationPerformed = True
+    self.setPetDataParameters()
     spacingX, spacingY, sliceThickness = self.getPixelSpacing()
     pixelVolume = spacingX * spacingY * sliceThickness / 1000  # cc
     return pixelVolume, [spacingX, spacingY, sliceThickness]
@@ -739,7 +843,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     liverConditions = ['liverSUVmax' in segmentationMethods, 'PERCIST' in segmentationMethods]
     if any(liverConditions):
-      liverSuvValues = self.getLiverSphereSuvValues(petVolume, suvImageArray)
+      liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "liverSphere")
 
     thresholds = {}
     for method in segmentationMethods:
