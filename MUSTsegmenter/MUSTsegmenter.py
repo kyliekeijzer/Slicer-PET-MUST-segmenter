@@ -554,10 +554,24 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
                             'PET features extracted')
 
   def extractVOIsMetrics(self):
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+    savePath = "/".join(self.petSeriesPath.split('/')[:-1])
+    fileName = f"VOIs_metrics_patient_{self.patientID}.xlsx"
+    filePath = f'{savePath}/{fileName}'
+
+    if os.path.exists(filePath):
+      if slicer.util.confirmOkCancelDisplay(f"File '{fileName}' already exists, do you want to overwrite it?"):
+        self.performVOImetricsExtraction(filePath, pixelSpacing)
+      else:
+        slicer.util.infoDisplay(f'VOIs metrics calculation canceled.',
+                                'Canceled')
+    else:
+      self.performVOImetricsExtraction(filePath, pixelSpacing)
+
+  def performVOImetricsExtraction(self, filePath, pixelSpacing):
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
     featuresRows = []
     extractor = self.createExtractor('VOIs')
-    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
 
@@ -577,7 +591,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         for feature in featureVector.keys():
           if feature.find('original') == 0:
             value = float(featureVector[feature])
-            featureDesc = feature[9:].replace("firstorder", "SUV").replace("shape_", "")
+            featureDesc = feature[9:].replace("firstorder", "SUV").replace("shape_", "").replace("Voxel", "")
             if "Volume" in featureDesc:
               featureDesc += " (cc)"
               featuresRow[featureDesc] = value / 1000
@@ -594,16 +608,22 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         items = list(featuresRow.items())
         items.insert(pos, ('SUV_Peak', suvPeak))
         featuresRow = dict(items)
-
+        # TLG
+        featuresRow["TLG"] = featuresRow["Volume (cc)"] * featuresRow["SUV_Mean"]
         featuresRows.append(featuresRow)
 
     featuresDf = self.pd.DataFrame(featuresRows)
-    savePath = "/".join(self.petSeriesPath.split('/')[:-1])
-    filePath = f'{savePath}/VOIs_metrics_patient_{self.patientID}.xlsx'
-    featuresDf.to_excel(filePath, index=False)
+    self.saveMetrics(featuresDf, filePath)
+
+  def saveMetrics(self, df, filePath):
     qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
-    slicer.util.infoDisplay(f'VOIs metrics calculated, metrics stored at: {filePath}',
-                            'VOIs metrics extracted')
+    try:
+      df.to_excel(filePath, index=False)
+      slicer.util.infoDisplay(f'Metrics calculated, stored at: {filePath}',
+                              'Metrics extracted')
+    except PermissionError:
+      slicer.util.infoDisplay(f'Could not save metrics, file "{filePath}" is opened.',
+                              'Permission denied')
 
   def createPeakSphere(self):
     pointListNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
@@ -613,7 +633,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     self.petVolume.GetRASBounds(bounds)
     nodeCenter = [round((bounds[0] + bounds[1]) / 2), round((bounds[2] + bounds[3]) / 2), round((bounds[4] + bounds[5]) / 2)]
     pointListNode.AddControlPoint(nodeCenter)
-    
+
     self.createSphere(1.2, "peakSphere")
     peakNode = slicer.util.getNode("peakSphere_")
     peakArray = self.getArrayFromSegmentationNode(self.petVolume, peakNode)
@@ -665,7 +685,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     elif method == 'matv':
       extractor.enableFeaturesByName(shape=['MeshVolume'])
     elif method == 'VOIs':
-      shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Sphericity']
+      shapeFeatures = ['VoxelVolume', 'Sphericity']
       firstorderFeatures = ['Maximum', 'Minimum', 'Mean', 'Median', 'Kurtosis', 'Skewness']
       extractor.enableFeaturesByName(firstorder=firstorderFeatures, shape=shapeFeatures)
     return extractor
