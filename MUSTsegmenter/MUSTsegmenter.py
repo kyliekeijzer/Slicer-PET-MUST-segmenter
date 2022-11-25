@@ -153,6 +153,14 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if self.ui.suv_per_roi.checkState() > 0:
         self.suvPerRoi = True
       thresholds.append('41suvMax')
+    if self.ui.A50P.checkState() > 0:
+      try:
+        slicer.util.getNode('VOI_liver')
+        slicer.util.getNode('VOI_lung')
+        thresholds.append('A50P')
+      except:
+        slicer.util.errorDisplay('No spheres in the liver and/or lung, please create these using the "VOI placement" '
+                                 'functionality, since they are required for A50P.')
     if self.ui.LiverSUVmax.checkState() > 0:
       thresholds.append('liverSUVmax')
     if self.ui.PERCIST.checkState() > 0:
@@ -176,7 +184,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     liverConditions = ['liverSUVmax' in thresholds, 'PERCIST' in thresholds]
     if any(liverConditions):
       try:
-        slicer.util.getNode('liverSphere')
+        slicer.util.getNode('VOI_liver')
       except:
         slicer.util.errorDisplay('No sphere in liver, please create a liver sphere when using segmentation method '
                                  'Liver SUVmax or PERCIST')
@@ -191,6 +199,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       'suv3.0': [0.0, 0.8, 0.2],
       'suv4.0': [0.55, 0.82, 0.35],
       '41suvMax': [0.22, 0.08, 0.94],
+      'A50P': [0.26, 0.16, 0.79],
       'liverSUVmax': [0.08, 0.37, 0.94],
       'PERCIST': [0.04, 0.60, 0.87],
       'brainSuvMean50': [0.65, 0.82, 0.94],
@@ -208,7 +217,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onCreateSphereButton(self):
     diameter = int(self.ui.voiSize.value)
-    self.segmentationLogic.createSphere(diameter, "VOI")
+    self.segmentationLogic.createSphere(diameter, "VOI", False)
 
   def onExtractVoiMetricsButton(self):
     self.segmentationLogic.extractVOIsMetrics()
@@ -236,6 +245,8 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       thresholds.append('suv4.0')
     if self.ui.SUV41max.checkState() > 0:
       thresholds.append('41suvMax')
+    if self.ui.A50P.checkState() > 0:
+      thresholds.append('A50P')
     if self.ui.LiverSUVmax.checkState() > 0:
       thresholds.append('liverSUVmax')
     if self.ui.PERCIST.checkState() > 0:
@@ -309,7 +320,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # create segmentations node
     segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
 
-    if method == 'VOI' or method == 'peakSphere':
+    if method == 'VOI' or method == 'peakSphere' or 'A50P' in method:
       colors = [0.24, 0.42, 0.86]
       thickness = 1
       segmentationNode.SetName(f'{method}_')
@@ -337,7 +348,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       segmentations.AddSegment(vtkSegment)
 
     # apply matrix transform to position the segmentation result
-    if not fromLabelMap and method != 'VOI':
+    if 'A50P' not in method and not fromLabelMap and method != 'VOI':
       transformMatrix = vtk.vtkMatrix4x4()
       transformMatrix.SetElement(0, 0, -1.0)
       transformMatrix.SetElement(1, 1, -1.0)
@@ -381,19 +392,23 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     return sphereValues
 
-  def createSphere(self, diameter, nodeName):
+  def createSphere(self, diameter, nodeName, rasCoords):
     """
     Method that creates a sphere model node, for the given method
     """
     sphere = vtk.vtkSphereSource()
     centerPointCoord = [0.0, 0.0, 0.0]
     radius = diameter * 10 / 2
-    try:
-      markups = slicer.util.getNode(nodeName)
-      markups.GetNthFiducialPosition(0, centerPointCoord)
-    except:
-      slicer.util.errorDisplay(f"No seed found with name or ID '{nodeName}'")
-      return
+
+    if rasCoords:
+      centerPointCoord = rasCoords[0:3]
+    else:
+      try:
+        markups = slicer.util.getNode(nodeName)
+        markups.GetNthFiducialPosition(0, centerPointCoord)
+      except:
+        slicer.util.errorDisplay(f"No seed found with name or ID '{nodeName}'")
+        return
 
     sphere.SetCenter(centerPointCoord)
     sphere.SetRadius(radius)
@@ -439,7 +454,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       organSegmentations = None
 
     # seeds
-    seeds = self.getPaintedSeedPoints(petVolume)
+    seeds = self.getPaintedSeedPoints(petVolume, segmentationMethods)
 
     # convert PET to SUV map
     suvMap, isEstimated = self.computeSuvMap(petImageFileList)
@@ -634,7 +649,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     nodeCenter = [round((bounds[0] + bounds[1]) / 2), round((bounds[2] + bounds[3]) / 2), round((bounds[4] + bounds[5]) / 2)]
     pointListNode.AddControlPoint(nodeCenter)
 
-    self.createSphere(1.2, "peakSphere")
+    self.createSphere(1.2, "peakSphere", False)
     peakNode = slicer.util.getNode("peakSphere_")
     peakArray = self.getArrayFromSegmentationNode(self.petVolume, peakNode)
     slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(peakArray))
@@ -717,6 +732,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     self.suvThreshold = suvThreshold
     self.thresholdDescr = thresholdDescr
     for i, seed in enumerate(seeds):
+      if thresholdDescr == 'A50P':
+        self.suvThreshold = self.getPeakBackgroundThreshold(i, suvThreshold)
       # perform the segmentation for the given seed
       segmentImage, segmentArray = self.seedGrowSegmentation(seed)
       # save the segmentation binary array
@@ -727,7 +744,25 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         labelmapNode = self.createLabelMapNode(origin, segmentImage, spacing)
         labelmapNodes.append(labelmapNode)
 
-    self.convertNodesToSegmentationNode(labelmapNodes, True, False, False, thresholdDescr)
+    self.convertNodesToSegmentationNode(labelmapNodes, True, False, 'False', thresholdDescr)
+
+  def getPeakBackgroundThreshold(self, i, bgValue):
+    peakSphere, peakPoint, peakNode = self.createPeakSphere()
+    voiNode = slicer.util.getNode(f'{i}_A50P_')
+    voiArray = self.getArrayFromSegmentationNode(self.petVolume, voiNode)
+
+    # Calculate SUVpeak
+    voiSuv = self.suvMap.copy()
+    voiSuv[voiArray < 1.0] = 0.0
+    suvPeak = self.calculateSuvPeak(peakSphere, voiSuv)
+    slicer.mrmlScene.RemoveNode(peakPoint)
+    slicer.mrmlScene.RemoveNode(peakNode)
+    slicer.mrmlScene.RemoveNode(voiNode)
+
+    # Calculate A50P threshold
+    threshold = 0.5 * (suvPeak + bgValue)
+
+    return threshold
 
   def createSuvMaxSegmentation(self, suvMap, suvPerRoi, shape, origin, spacing, petVolume, roiFilter):
     """
@@ -861,9 +896,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that computes the SUV thresholds that will be used for seed segmentation
     """
+    liverSuvValues = False
     liverConditions = ['liverSUVmax' in segmentationMethods, 'PERCIST' in segmentationMethods]
     if any(liverConditions):
-      liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "liverSphere")
+      liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_liver")
 
     thresholds = {}
     for method in segmentationMethods:
@@ -876,8 +912,17 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       elif method == 'liverSUVmax':
         thresholds[method] = np.max(liverSuvValues)
       elif method == 'PERCIST':
-        percistSuv = 1.5 * np.mean(liverSuvValues) + (2 * np.std(liverSuvValues))
+        liverAvr = np.mean(liverSuvValues)
+        liverStd = np.std(liverSuvValues)
+        percistSuv = 1.5 * liverAvr + (2 * liverStd)
         thresholds[method] = percistSuv
+      elif method == 'A50P':
+        lungSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_lung")
+        if not liverSuvValues:
+          liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_liver")
+          liverAvr = np.mean(liverSuvValues)
+        bgCorrection = (np.mean(lungSuvValues) + liverAvr) / 2
+        thresholds[method] = bgCorrection
       elif method == 'brain_region':
         brainSuvArray = self.getBrainSuvArray(suvImageArray, petVolume)
         brainSuvMean = np.mean(brainSuvArray)
@@ -1060,7 +1105,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     else:
       return [x['dicomFile'] for x in data]
 
-  def getPaintedSeedPoints(self, refVolume):
+  def getPaintedSeedPoints(self, refVolume, segmentationMethods):
     """
     Method that retrieves the user provided painted seeds
     """
@@ -1073,6 +1118,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         if isVisible:
           zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
           seedCoordinates.append(zxyCoords)
+          if 'A50P' in segmentationMethods:
+            rasCoords = [0, 0, 0, 1]
+            fidList.GetNthFiducialWorldCoordinates(i, rasCoords)
+            self.createSphere(3, f'{i}_A50P', rasCoords)
 
     return seedCoordinates
 
@@ -1245,5 +1294,5 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       roi.SetXYZ(center[0], center[1], center[2])
     # load liverSphere
     liverSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'liverSphere.seg.vtm'))
-    liverSphere.SetName('liverSphere')
+    liverSphere.SetName('VOI_liver')
 
