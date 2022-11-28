@@ -153,6 +153,10 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if self.ui.suv_per_roi.checkState() > 0:
         self.suvPerRoi = True
       thresholds.append('41suvMax')
+    if self.ui.LiverSUVmax.checkState() > 0:
+      thresholds.append('liverSUVmax')
+    if self.ui.PERCIST.checkState() > 0:
+      thresholds.append('PERCIST')
     if self.ui.A50P.checkState() > 0:
       try:
         slicer.util.getNode('VOI_liver')
@@ -161,10 +165,6 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       except:
         slicer.util.errorDisplay('No spheres in the liver and/or lung, please create these using the "VOI placement" '
                                  'functionality, since they are required for A50P.')
-    if self.ui.LiverSUVmax.checkState() > 0:
-      thresholds.append('liverSUVmax')
-    if self.ui.PERCIST.checkState() > 0:
-      thresholds.append('PERCIST')
     if self.ui.MV2.checkState() > 0:
       thresholds.append('MV2')
     if self.ui.MV3.checkState() > 0:
@@ -199,9 +199,9 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       'suv3.0': [0.0, 0.8, 0.2],
       'suv4.0': [0.55, 0.82, 0.35],
       '41suvMax': [0.22, 0.08, 0.94],
-      'A50P': [0.26, 0.16, 0.79],
       'liverSUVmax': [0.08, 0.37, 0.94],
       'PERCIST': [0.04, 0.60, 0.87],
+      'A50P': [0.26, 0.16, 0.79],
       'brainSuvMean50': [0.65, 0.82, 0.94],
       'brainSuvMean45': [0.65, 0.82, 0.94],
       'brainSuvMean41': [0.65, 0.82, 0.94],
@@ -245,12 +245,12 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       thresholds.append('suv4.0')
     if self.ui.SUV41max.checkState() > 0:
       thresholds.append('41suvMax')
-    if self.ui.A50P.checkState() > 0:
-      thresholds.append('A50P')
     if self.ui.LiverSUVmax.checkState() > 0:
       thresholds.append('liverSUVmax')
     if self.ui.PERCIST.checkState() > 0:
       thresholds.append('PERCIST')
+    if self.ui.A50P.checkState() > 0:
+      thresholds.append('A50P')
     if self.ui.MV2.checkState() > 0:
       thresholds.append('MV2')
     if self.ui.MV3.checkState() > 0:
@@ -784,7 +784,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           segmentImage = sitk.GetImageFromArray(segmentMask)
           labelmapNode = self.createLabelMapNode(origin, segmentImage, spacing)
           labelmapNodes.append(labelmapNode)
-      self.convertNodesToSegmentationNode(labelmapNodes, True, False, False, '41suvMax')
+      self.convertNodesToSegmentationNode(labelmapNodes, True, False, 'False', '41suvMax')
 
     else:
       if not roiFilter:
@@ -796,7 +796,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       if np.count_nonzero(segmentMask) > 1:
         segmentImage = sitk.GetImageFromArray(segmentMask)
         labelMapNode = self.createLabelMapNode(origin, segmentImage, spacing)
-        self.convertNodesToSegmentationNode([labelMapNode], True, False, False, '41suvMax')
+        self.convertNodesToSegmentationNode([labelMapNode], True, False, 'False', '41suvMax')
 
   def createMajVotingSegmentation(self, segmentationsForMajVoting, mvMethods, origin, spacing, segmentationMethods,
                                   petVolume):
@@ -819,7 +819,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         if np.count_nonzero(mv) > 1:
           segmentImage = sitk.GetImageFromArray(mv)
           labelMapNode = self.createLabelMapNode(origin, segmentImage, spacing)
-          self.convertNodesToSegmentationNode([labelMapNode], True, False, False, method)
+          self.convertNodesToSegmentationNode([labelMapNode], True, False, 'False', method)
 
   def createLabelMapNode(self, origin, segmentImage, spacing):
     """
@@ -896,7 +896,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that computes the SUV thresholds that will be used for seed segmentation
     """
-    liverSuvValues = False
+    liverSuvValues = []
     liverConditions = ['liverSUVmax' in segmentationMethods, 'PERCIST' in segmentationMethods]
     if any(liverConditions):
       liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_liver")
@@ -918,7 +918,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         thresholds[method] = percistSuv
       elif method == 'A50P':
         lungSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_lung")
-        if not liverSuvValues:
+        if len(liverSuvValues) == 0:
           liverSuvValues = self.getSphereSuvValues(petVolume, suvImageArray, "VOI_liver")
           liverAvr = np.mean(liverSuvValues)
         bgCorrection = (np.mean(lungSuvValues) + liverAvr) / 2
@@ -1215,6 +1215,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       'suv3.0': [0.0, 0.8, 0.2],
       'suv4.0': [0.55, 0.82, 0.35],
       '41suvMax': [0.22, 0.08, 0.94],
+      'A50P': [0.26, 0.16, 0.79],
       'liverSUVmax': [0.08, 0.37, 0.94],
       'PERCIST': [0.04, 0.60, 0.87],
       'MV2': [0.65, 0.0, 0.0],
@@ -1222,7 +1223,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
     }
     self.segmentationMethods = ['suv2.5', 'suv3.0', 'suv4.0',
                                 '41suvMax', 'liverSUVmax', 'PERCIST',
-                                'MV2', 'MV3']
+                                'A50P', 'MV2', 'MV3']
 
   def runTest(self):
     self.setUp()
@@ -1293,6 +1294,8 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       center = list(coords['center'])
       roi.SetXYZ(center[0], center[1], center[2])
     # load liverSphere
-    liverSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'liverSphere.seg.vtm'))
+    liverSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'VOI_liver.seg.vtm'))
     liverSphere.SetName('VOI_liver')
+    lungSphere = slicer.util.loadSegmentation(os.path.join(sampleDataPath, 'VOI_lung.seg.vtm'))
+    lungSphere.SetName('VOI_lung')
 
