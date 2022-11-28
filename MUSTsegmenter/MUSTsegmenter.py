@@ -194,6 +194,10 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.ui.ROIfilter.checkState() > 0:
       self.roiFilter = True
 
+    self.reversed = False
+    if self.ui.reversed.checkState() > 0:
+      self.reversed = True
+
     self.segmentationColors = {
       'suv2.5': [0.12, 0.55, 0.18],
       'suv3.0': [0.0, 0.8, 0.2],
@@ -225,7 +229,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def onSegmentationButton(self):
     if self.checkValidParameters():
       self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
-                                                 self.roiFilter, self.segmentationColors)
+                                                 self.roiFilter, self.reversed, self.segmentationColors)
 
   def onComputeMatvButton(self):
     thresholds = self.getSelectedThresholds()
@@ -428,7 +432,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     slicer.mrmlScene.AddNode(model)
     self.convertNodesToSegmentationNode([model], False, True, nodeName, nodeName)
 
-  def performSegmentation(self, organSegmentsNode, segmentationMethods, suvPerRoi, roiFilter, segmentationColors):
+  def performSegmentation(self, organSegmentsNode, segmentationMethods, suvPerRoi, roiFilter, reversed, segmentationColors):
     """
     Method that performs the actual segmentation
     """
@@ -444,7 +448,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
 
-    reversed = False
     petImageFileList = self.getPetFilesLists(petVolume, reversed)
 
     # get the organ segmentations
@@ -1210,6 +1213,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
     self.organSegments = None
     self.suvPerRoi = False
     self.roiFilter = False
+    self.reversed = False
     self.segmentationColors = {
       'suv2.5': [0.12, 0.55, 0.18],
       'suv3.0': [0.0, 0.8, 0.2],
@@ -1236,7 +1240,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
 
   def performSegmentationTests(self):
     self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
-                                               self.roiFilter, self.segmentationColors)
+                                               self.roiFilter, self.reversed, self.segmentationColors)
     self.segmentationLogic.calulateMATV(self.segmentationMethods)
 
   def loadTestData(self):

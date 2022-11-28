@@ -286,6 +286,18 @@
     </widget>
    </item>
    <item>
+    <widget class="QCheckBox" name="reversed">
+     <property name="font">
+      <font>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Reverse images</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="Line" name="line_2">
      <property name="lineWidth">
       <number>5</number>
