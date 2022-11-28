@@ -13,7 +13,7 @@ multiple lesions at once, and extracts metabolic active tumor volume (MATV).
 #### Sample Data
 If needed, a sample dataset can be found [here](https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/tree/master/Sample%20Data).
 
-### Preparation
+### A. Preparation
 
 1. [Import PET and (optional) CT DICOM series into 3D Slicer ](https://slicer.readthedocs.io/en/latest/user_guide/modules/dicom.html#dicom-import)  
 This can be retrieved by drag and dropping files into the DICOM database or by importing files into the DICOM database.
@@ -30,10 +30,22 @@ b. ![](screenshots/5.png?raw=true "")
 5. Go to MUST-segmenter  
 ![](screenshots/6.png?raw=true "")  
 
-### Segmentation with MUST-segmenter
+### B. VOI characteristics
+![](screenshots/43.png?raw=true "")  
+1. Create a new Point List and rename to 'VOI'  
+   ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/16.png?raw=true "") &rarr; ![](screenshots/42.png?raw=true "")  
+2. Place one seed in the desired location on the PET images  
+3. Select a VOI diameter size  
+4. 'Create VOI'  
+5. Rename the VOI to an appropriate name  
+   ![](screenshots/44.png?raw=true "")  
+6. Repeat step 2 - 5 to create multiple VOIs  
+7. 'Extract VOIs metrics' to save characteristics from all the VOIs
+
+### C. Segmentation with MUST-segmenter
 1. Identify tumors by seed placing (Points)  
    ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
-3. Choose segmentation method(s):  
+2. Choose segmentation method(s):  
    ![](screenshots/10.png?raw=true "")  
    - Fixed thresholds: **SUV 2.5**, **SUV 3.0** and **SUV 4.0**  
    - **41% SUVmax**  
@@ -43,15 +55,14 @@ b. ![](screenshots/5.png?raw=true "")
         ![](screenshots/12.png?raw=true "")  
      b. (optional) Take a threshold for each individual ROI  
         ![](screenshots/13.png?raw=true "")  
+   - **A50P**  
+     a. Create a VOI in the right lobe of the liver and in the right lung, as described in section A.  
+     b. Rename the VOIs to 'VOI_liver' and 'VOI_lung'  
+     c. *Delete* the 'VOI' Point List before segmentation!  
    - Liver-based thresholds: **Liver SUVmax** and **PERCIST**  
-     a. Create a new Point List and rename it to 'liver'  
-        ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/16.png?raw=true "") &rarr; ![](screenshots/17.png?raw=true "")  
-     b. Place the seed in the right lobe of the liver  
-        ![](screenshots/18.png?raw=true "")  
-     c. Create the liver sphere  
-        ![](screenshots/19.png?raw=true "") &rarr; ![](screenshots/20.png?raw=true "")  
-     d. *Delete* the 'liver' Point List!  
-        ![](screenshots/21.png?raw=true "")  
+     a. Create a VOI in the right lobe of the liver as described in section A.  
+     b. Rename the VOI to 'VOI_liver'  
+     c. *Delete* the 'VOI' Point List before segmentation!  
    - Majority Voting: **MV2** and **MV3**  
      a. Make sure the following segmentation methods are *additionally* selected:  
         *SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST*  
@@ -60,23 +71,19 @@ b. ![](screenshots/5.png?raw=true "")
         ![](screenshots/22.png?raw=true "")  
      b. Rename the brain segmentation node to 'brain'  
         ![](screenshots/23.png?raw=true "") &rarr; ![](screenshots/7.png?raw=true "")  
-4. Perform segmentation and wait for the results!  
-   ![](screenshots/24.png?raw=true "") &rarr; ![](screenshots/25.png?raw=true "")  
-5. Save the segmentations in the desired format  
-   ![](screenshots/33.png?raw=true "") &rarr; ![](screenshots/34.png?raw=true "")  
-   Before exporting to NRRD or NIFTI, the segmentation node needs to be converted to a labelmap node!  
-   ![](screenshots/35.png?raw=true "")  
+3. Perform segmentation and wait for the results!  
+   ![](screenshots/24.png?raw=true "") &rarr; ![](screenshots/25.png?raw=true "")
 
-### MATV extraction
+### D. Feature extraction
 1. Select the segmentation results that are present in the scene  
 ![](screenshots/10.png?raw=true "")  
-2. Compute MATV  
+2. Compute MATV  or Extract PET Features  
 ![](screenshots/27.png?raw=true "")  
 3. Files are stored at the reported location  
 ![](screenshots/28.png?raw=true "")
 
-### Optional functionalities
-1. **Remove avoidance regions**  
+### E. Optional functionalities
+1. **Remove avoidance regions from segmentation result**  
    a. Load avoidance regions as segmentations  
       ![](screenshots/30.png?raw=true "") ![](screenshots/29.png?raw=true "")  
    b. Provide the 'avoidance segmentations' node name in the input bar  
@@ -85,14 +92,21 @@ b. ![](screenshots/5.png?raw=true "")
 2. **Remove area outside bounding boxes**  
    Selecting this option will result in the deletion of all areas outside the provided ROIs  
    ![](screenshots/32.png?raw=true "")  
-3. **Edit liverSphere**  
-   If you are not satisfied with the position of the 'liverSphere', it can be moved by the following steps:  
+3. **Reverse images**  
+   Selecting this option will reverse the PET images order (may be needed if VOI metrics are inaccurate)  
+4. **Edit VOIs positions**  
+   If you are not satisfied with the position of the VOIs, they can be moved by the following steps:  
    a. Create and edit a new transform  
       ![](screenshots/36.png?raw=true "") &rarr; ![](screenshots/37.png?raw=true "")  
    b. Change the position by altering the 'Translation' and 'Rotation' values  
       ![](screenshots/38.png?raw=true "")  
    c. Permanently save the position changes  
-      ![](screenshots/39.png?raw=true "")  
+      ![](screenshots/39.png?raw=true "")
+5. **Save segmentations in the desired format**  
+   Before exporting to NRRD or NIFTI, the segmentation node needs to be converted to a labelmap node!  
+   ![](screenshots/35.png?raw=true "") &rarr;  
+   ![](screenshots/33.png?raw=true "") &rarr; ![](screenshots/34.png?raw=true "")  
+   
 
 ## 3. Notes
 ### Segmentation
@@ -100,10 +114,10 @@ b. ![](screenshots/5.png?raw=true "")
 ![](screenshots/2.png?raw=true "")  
 - Make sure the brain contour is named 'brain'  
 ![](screenshots/7.png?raw=true "")  
-- Make sure the 'liverSphere' is present for liver-based segmentation methods  
-![](screenshots/26.png?raw=true "")  
+- Make sure the '**VOI_liver**' is present for liver-based segmentation methods
+- Make sure the '**VOI_liver**' and '**VOI_lung**' are present for the A50P segmentation method  
 - Make sure only ***one*** patient is loaded into the scene  
-### MATV extraction
+### Feature extraction
 - Make sure all segmentation results of the selected methods are present in the scene
 
 ## 4. SelfTest
