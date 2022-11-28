@@ -548,6 +548,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
+
+    peakSphere, peakPoint, peakNode = self.createPeakSphere()
     for thresh in thresholds:
       try:
         segmentNode = slicer.util.getNode('{0}_segmentation_{1}'.format(self.patientID, thresh))
@@ -561,7 +563,30 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         'Segmentation method': thresh
       }
       featureVector = extractor.execute(suvImage, segmentImage)
-      featuresRow.update(featureVector)
+      for feature in featureVector.keys():
+        if feature.find('original') == 0:
+          value = float(featureVector[feature])
+          featureDesc = feature[9:].replace("firstorder", "SUV").replace("shape_", "").replace("Voxel", "")
+          if "Volume" in featureDesc:
+            featureDesc += " (cc)"
+            featuresRow[featureDesc] = value / 1000
+          else:
+            featuresRow[featureDesc] = value
+        else:
+          featuresRow[feature] = featureVector[feature]
+
+      # Calculate SUVpeak
+      segmentSuv = self.suvMap.copy()
+      segmentSuv[segmentArray < 1.0] = 0.0
+      suvPeak = self.calculateSuvPeak(peakSphere, segmentSuv)
+      slicer.mrmlScene.RemoveNode(peakPoint)
+      slicer.mrmlScene.RemoveNode(peakNode)
+      pos = list(featuresRow.keys()).index('SUV_Median') + 1
+      items = list(featuresRow.items())
+      items.insert(pos, ('SUV_Peak', suvPeak))
+      featuresRow = dict(items)
+      # TLG
+      featuresRow["TLG"] = featuresRow["Volume (cc)"] * featuresRow["SUV_Mean"]
       featuresRows.append(featuresRow)
 
     featuresDf = self.pd.DataFrame(featuresRows)
