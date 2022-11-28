@@ -37,7 +37,7 @@ b. ![](screenshots/5.png?raw=true "")
 2. Place one seed in the desired location on the PET images  
 3. Select a VOI diameter size  
 4. 'Create VOI'  
-5. Rename the VOI to an appropriate name  
+5. Rename the VOI to an appropriate name (but must start with 'VOI_')  
    ![](screenshots/44.png?raw=true "")  
 6. Repeat step 2 - 5 to create multiple VOIs  
 7. 'Extract VOIs metrics' to save characteristics from all the VOIs

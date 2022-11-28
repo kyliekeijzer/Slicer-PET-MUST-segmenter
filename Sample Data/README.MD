@@ -13,7 +13,8 @@ This patient is diagnosed with Metastatic Adenocarcinoma, resulting in several t
 `AVOIDANCE REGIONS` The avoidance regions RTSTRUCT file  
 `seed.mrk.json` The seeds located on tumors  
 `R.json, R_1.json, R_2.json, R_3.json` The annotation ROIs located on tumors  
-`liverSphere.seg.vtm, liverSphere.seg` The liverSphere segmentation  
+`VOI_liver.seg.vtm, VOI_liver.seg` The liver VOI segmentation  
+`VOI_lung.seg.vtm, VOI_lung.seg` The lung VOI segmentation  
 
 ---
 
