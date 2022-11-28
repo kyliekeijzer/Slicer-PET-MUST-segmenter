@@ -1,6 +1,6 @@
 # MUST-segmenter
 ***MU***ltiple ***S***UV ***T***hresholding (MUST)-segmenter is a semi-automated PET image segmentation tool that enables delineation of 
-multiple lesions at once, and extracts metabolic active tumor volume (MATV).
+multiple lesions at once, and extracts the lesions' features.  
 
 ![](screenshots/Slicer-MUST-segmenter_screenshot.png?raw=true "MUST-segmenter screenshot")  
 
@@ -77,7 +77,7 @@ b. ![](screenshots/5.png?raw=true "")
 ### D. Feature extraction
 1. Select the segmentation results that are present in the scene  
 ![](screenshots/10.png?raw=true "")  
-2. Compute MATV  or Extract PET Features  
+2. Compute metabolic active tumor volume (MATV) or extract more PET features  
 ![](screenshots/27.png?raw=true "")  
 3. Files are stored at the reported location  
 ![](screenshots/28.png?raw=true "")
