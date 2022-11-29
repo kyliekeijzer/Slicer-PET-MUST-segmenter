@@ -1269,7 +1269,9 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
   def performSegmentationTests(self):
     self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
                                                self.roiFilter, self.reversed, self.segmentationColors)
+    self.segmentationLogic.extractVOIsMetrics()
     self.segmentationLogic.calulateMATV(self.segmentationMethods)
+    self.segmentationLogic.extractFeatures(self.segmentationMethods)
 
   def loadTestData(self):
     zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
