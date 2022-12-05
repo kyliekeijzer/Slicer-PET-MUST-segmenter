@@ -224,7 +224,10 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.segmentationLogic.createSphere(diameter, "VOI", False)
 
   def onExtractVoiMetricsButton(self):
-    self.segmentationLogic.extractVOIsMetrics()
+    reversed = False
+    if self.ui.reversed.checkState() > 0:
+      reversed = True
+    self.segmentationLogic.extractVOIsMetrics(reversed)
 
   def onSegmentationButton(self):
     if self.checkValidParameters():
@@ -232,12 +235,18 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                  self.roiFilter, self.reversed, self.segmentationColors)
 
   def onComputeMatvButton(self):
+    reversed = False
+    if self.ui.reversed.checkState() > 0:
+      reversed = True
     thresholds = self.getSelectedThresholds()
-    self.segmentationLogic.calulateMATV(thresholds)
+    self.segmentationLogic.calulateMATV(thresholds, reversed)
 
   def onExtractPetFeaturesButton(self):
+    reversed = False
+    if self.ui.reversed.checkState() > 0:
+      reversed = True
     thresholds = self.getSelectedThresholds()
-    self.segmentationLogic.extractFeatures(thresholds)
+    self.segmentationLogic.extractFeatures(thresholds, reversed)
 
   def getSelectedThresholds(self):
     thresholds = []
@@ -512,7 +521,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
     slicer.util.infoDisplay(message, 'Segmentations created')
 
-  def calulateMATV(self, thresholds):
+  def calulateMATV(self, thresholds, reversed):
     """
     Method that calculates the MATVs for the given threshold methods that are available in the scene
     """
@@ -520,7 +529,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     self.matvRows = []
 
     extractor = self.createExtractor('matv')
-    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
 
@@ -544,10 +553,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
     slicer.util.infoDisplay(f'MATV calculations finished, MATVs stored at: {volumeFilePath}', 'MATVs extracted')
 
-  def extractFeatures(self, thresholds):
+  def extractFeatures(self, thresholds, reversed):
     featuresRows = []
     extractor = self.createExtractor('all')
-    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
     peakSphere, peakPoint, peakNode = self.createPeakSphere()
@@ -599,8 +608,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     slicer.util.infoDisplay(f'PET feature extraction finished, features stored at: {volumeFilePath}',
                             'PET features extracted')
 
-  def extractVOIsMetrics(self):
-    pixelVolume, pixelSpacing = self.getCubicCmPerPixel()
+  def extractVOIsMetrics(self, reversed):
+    pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
     fileName = f"VOIs_metrics_patient_{self.patientID}.xlsx"
     filePath = f'{savePath}/{fileName}'
@@ -885,11 +894,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     return matv
 
-  def getCubicCmPerPixel(self):
+  def getCubicCmPerPixel(self, reversed):
     """
     Method that computes the cubic cm per pixel for the given PET DICOM series
     """
-    self.setPetDataParameters()
+    self.setPetDataParameters(reversed)
     spacingX, spacingY, sliceThickness = self.getPixelSpacing()
     pixelVolume = spacingX * spacingY * sliceThickness / 1000  # cc
     return pixelVolume, [spacingX, spacingY, sliceThickness]
@@ -903,9 +912,9 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     return pixel_spacing[0], pixel_spacing[1], slice_thickness
 
-  def setPetDataParameters(self):
+  def setPetDataParameters(self, reversed):
     self.petVolume = self.getVolumeFromList('pet')
-    petImageFileList = self.getPetFilesLists(self.petVolume, False)
+    petImageFileList = self.getPetFilesLists(self.petVolume, reversed)
     self.suvMap, isEstimated = self.computeSuvMap(petImageFileList)
 
   def getBrainSuvArray(self, suvImageArray, petVolume):
@@ -1269,9 +1278,9 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
   def performSegmentationTests(self):
     self.segmentationLogic.performSegmentation(self.organSegments, self.segmentationMethods, self.suvPerRoi,
                                                self.roiFilter, self.reversed, self.segmentationColors)
-    self.segmentationLogic.extractVOIsMetrics()
-    self.segmentationLogic.calulateMATV(self.segmentationMethods)
-    self.segmentationLogic.extractFeatures(self.segmentationMethods)
+    self.segmentationLogic.extractVOIsMetrics(self.reversed)
+    self.segmentationLogic.calulateMATV(self.segmentationMethods, False)
+    self.segmentationLogic.extractFeatures(self.segmentationMethods, False)
 
   def loadTestData(self):
     zipUrl = "https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/raw/master/Sample%20Data/Sample%20Data.zip"
