@@ -64,7 +64,8 @@ b. ![](screenshots/5.png?raw=true "")
      b. Rename the VOI to 'VOI_liver'  
      c. *Delete* the 'VOI' Point List before segmentation!  
    - Majority Voting: **MV2** and **MV3**  
-     a. Make sure the following segmentation methods are *additionally* selected:  
+     a. Make sure the following segmentation methods are *additionally* selected, 
+     or that those segmentation results are present in the scene:  
         *SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST*  
    - **Brain region based**  
      a. Provide or create a brain segmentation  
@@ -93,7 +94,10 @@ b. ![](screenshots/5.png?raw=true "")
    Selecting this option will result in the deletion of all areas outside the provided ROIs  
    ![](screenshots/32.png?raw=true "")  
 3. **Reverse images**  
-   Selecting this option will reverse the PET images order (may be needed if VOI metrics are inaccurate)  
+   Selecting this option will reverse the PET images order when performing segmentation or PET feature extraction. 
+   This may be needed if VOI metrics are inaccurate and is caused by the PET/CT being performed in the 
+   opposite order.  
+   ![](screenshots/14.png?raw=true "")  
 4. **Edit VOIs positions**  
    If you are not satisfied with the position of the VOIs, they can be moved by the following steps:  
    a. Create and edit a new transform  
