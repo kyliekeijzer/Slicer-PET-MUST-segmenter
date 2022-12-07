@@ -510,10 +510,9 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # perform majority vote segmentation
     if performMVsegmentation:
       majorityVotingMethods = ['suv2.5', 'suv4.0', '41suvMax', 'liverSUVmax', 'PERCIST']
-      if set(majorityVotingMethods) <= set(segmentationMethods):
-        self.createMajVotingSegmentation(segmentationsForMajVoting, mvMethods, origin, spacing, majorityVotingMethods,
-                                         petVolume)
-      else:
+      finished = self.createMajVotingSegmentation(segmentationsForMajVoting, mvMethods, origin,
+                                                  spacing, majorityVotingMethods, petVolume)
+      if not finished:
         message = f'Segmentation finished, but Majority Voting segmentation not performed. ' \
                   f'Please select the following methods to perform MV segmentation: ' \
                   f'SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST'
@@ -844,7 +843,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     Method that creates the segmentation result based on majority voting
     """
     for method in segmentationMethods:
-      segmentNode = slicer.util.getNode('{0}_segmentation_{1}'.format(self.patientID, method))
+      try:
+        segmentNode = slicer.util.getNode('{0}_segmentation_{1}'.format(self.patientID, method))
+      except:
+        return False
       segmentArray = self.getArrayFromSegmentationNode(petVolume, segmentNode)
       segmentationsForMajVoting.append(segmentArray)
     voxelOverlaps = sum(segmentationsForMajVoting)
@@ -860,6 +862,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           segmentImage = sitk.GetImageFromArray(mv)
           labelMapNode = self.createLabelMapNode(origin, segmentImage, spacing)
           self.convertNodesToSegmentationNode([labelMapNode], True, False, 'False', method)
+      return True
 
   def createLabelMapNode(self, origin, segmentImage, spacing):
     """
