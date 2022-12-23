@@ -24,7 +24,7 @@ class MUSTsegmenter(ScriptedLoadableModule):
     Please refer to https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter
     """
     self.parent.acknowledgementText = """
-    This segmentation extension was developed by Kylie Keijzer, 
+    This segmentation extension was developed by Kylie Keijzer,
     University Medical Center Groningen (UMCG), The Netherlands.
     """
 
@@ -317,6 +317,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         self.Conv3d = Conv3d
         self.torchTensor = tensor
 
+    slicer.modules.slicerradiomics.widgetRepresentation()  # SlicerRadiomics installs additional python packages on widget instantiation
     try:
       from radiomics import featureextractor
       self.featureextractor = featureextractor
