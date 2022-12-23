@@ -411,15 +411,14 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     Method that creates a sphere model node, for the given method
     """
     sphere = vtk.vtkSphereSource()
-    centerPointCoord = [0.0, 0.0, 0.0]
     radius = diameter * 10 / 2
 
     if rasCoords:
-      centerPointCoord = rasCoords[0:3]
+      centerPointCoord = rasCoords
     else:
       try:
         markups = slicer.util.getNode(nodeName)
-        markups.GetNthFiducialPosition(0, centerPointCoord)
+        centerPointCoord = markups.GetNthControlPointPosition(0)
       except:
         slicer.util.errorDisplay(f"No seed found with name or ID '{nodeName}'")
         return
@@ -480,8 +479,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     if roiFilter:
       # ROIs
-      ROIs = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationROINode")
-      roisCoords = self.getRoisCoords(petVolume, ROIs)
+      roisCoords = self.getRoisCoords(petVolume)
       roisFilter = self.getRoisFilter(roisCoords, shape)
       suvMap[roisFilter == 0.0] = 0.0
     self.suvMap = suvMap
@@ -808,8 +806,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that creates the segmentation result based on SUVmax thresholding
     """
-    ROIs = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationROINode")
-    roisCoords = self.getRoisCoords(petVolume, ROIs)
+    roisCoords = self.getRoisCoords(petVolume)
 
     if suvPerRoi:
       labelmapNodes = []
@@ -1154,31 +1151,29 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     Method that retrieves the user provided painted seeds
     """
     seedCoordinates = []
-    fidLists = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsFiducialNode")
-    for fidList in fidLists:
-      numFids = fidList.GetNumberOfFiducials()
-      for i in range(numFids):
-        isVisible = fidList.GetNthFiducialVisibility(i)
+    for i in range(slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLMarkupsFiducialNode")):
+      pointList = slicer.mrmlScene.GetNthNodeByClass(i, "vtkMRMLMarkupsFiducialNode")
+      numControlPoints = pointList.GetNumberOfControlPoints()
+      for i in range(numControlPoints):
+        isVisible = pointList.GetNthControlPointVisibility(i)
         if isVisible:
-          zxyCoords = self.getSeedCoordinate(fidList, i, refVolume)
+          zxyCoords = self.getSeedCoordinate(pointList, i, refVolume)
           seedCoordinates.append(zxyCoords)
           if 'A50P' in segmentationMethods:
-            rasCoords = [0, 0, 0, 1]
-            fidList.GetNthFiducialWorldCoordinates(i, rasCoords)
+            rasCoords = pointList.GetNthControlPointPosition(i)
             self.createSphere(3, f'{i}_A50P', rasCoords)
 
     return seedCoordinates
 
-  def getSeedCoordinate(self, fidList, i, refVolume):
+  def getSeedCoordinate(self, pointList, i, refVolume):
     """
-    Method that retrieves the IJK coordinate from a given fiducial index in the provided fiducials list
+    Method that retrieves the IJK coordinate from a given control point index in the provided point list
     and reference volume.
     """
     # Get RAS coordinates of seed
-    rasCoords = [0, 0, 0, 1]
-    fidList.GetNthFiducialWorldCoordinates(i, rasCoords)
+    rasCoords = pointList.GetNthControlPointPosition(i)
     # Convert RAS to ZXY
-    zxyCoords = self.convertRasPointToIjkPoint(rasCoords[0:3], refVolume)
+    zxyCoords = self.convertRasPointToIjkPoint(rasCoords, refVolume)
 
     return zxyCoords
 
@@ -1202,13 +1197,14 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     return zyxCoords
 
-  def getRoisCoords(self, petVolume, ROIs):
+  def getRoisCoords(self, petVolume):
     """
-    Method that gets the coordinates of the given ROIs
+    Method that gets the coordinates of all visible ROIs in the scene
     """
     roisCoords = {}
-    for i, roi in enumerate(ROIs):
-      if roi.GetAnnotationLineDisplayNode().GetVisibility() == 1:
+    for i in range(slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLMarkupsROINode")):
+      roi = slicer.mrmlScene.GetNthNodeByClass(i, "vtkMRMLMarkupsROINode")
+      if roi.GetDisplayVisibility():
         center, radius = self.getRoiCoord(petVolume, roi)
         roisCoords[i] = {
           'center': center,
@@ -1225,8 +1221,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # Get RAS coordinates
     center = [0, 0, 0]
     radius = [0, 0, 0]
-    roi.GetControlPointWorldCoordinates(0, center)
-    roi.GetControlPointWorldCoordinates(1, radius)
+    roi.GetXYZ(center)
+    roi.GetRadiusXYZ(radius)
     center = np.array(center)
     radius = np.array(radius)
     upper = np.add(center, radius)
@@ -1335,7 +1331,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
     for r in roiNames:
       rObj = open(os.path.join(sampleDataPath, r + '.json'))
       coords = json.load(rObj)
-      roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
+      roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
       roi.SetName(r)
       roi.SetRadiusXYZ(list(coords['radius']))
       center = list(coords['center'])
