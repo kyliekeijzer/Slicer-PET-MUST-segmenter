@@ -23,7 +23,7 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
-add_subdirectory(MUSTSegmenter)
+add_subdirectory(MUSTsegmenter)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
