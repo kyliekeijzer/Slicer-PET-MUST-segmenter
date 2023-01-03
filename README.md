@@ -50,7 +50,7 @@ b. ![](screenshots/5.png?raw=true "")
    - Fixed thresholds: **SUV 2.5**, **SUV 3.0** and **SUV 4.0**  
    - **41% SUVmax**  
      a. Place regions of interest (ROIs) around the identified tumors (the seeds don't need to be removed)  
-        ![](screenshots/11.png?raw=true "") &rarr; ![](screenshots/41.png?raw=true "") &rarr;  
+        ![](screenshots/11.png?raw=true "") &rarr;  
      (click on an image slice to initialize the annotation ROI)  
         ![](screenshots/12.png?raw=true "")  
      b. (optional) Take a threshold for each individual ROI  
