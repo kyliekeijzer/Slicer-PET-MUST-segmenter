@@ -1217,7 +1217,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     Method that extracts the center and the radius from the given ROI
     """
-    roi.SetVolumeNodeID(petVolume.GetID())
     # Get RAS coordinates
     center = [0, 0, 0]
     radius = [0, 0, 0]
