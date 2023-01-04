@@ -10,6 +10,9 @@ multiple lesions at once, and extracts the lesions' features.
 
 ## 2. Tutorial
 
+#### DEMO video
+A MUST-segmenter (mini) demo video can be found [here](https://youtu.be/Fib_EEHa9pA).  
+
 #### Sample Data
 If needed, a sample dataset can be found [here](https://github.com/kyliekeijzer/Slicer-PET-MUST-segmenter/tree/master/Sample%20Data).
 
