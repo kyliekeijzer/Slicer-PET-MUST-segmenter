@@ -57,8 +57,8 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # App icon
     iconPath = os.path.join(os.path.dirname(slicer.modules.mustsegmenter.path), 'Resources', 'Icons',
-                            'MUSTsegmenter_small.png')
-    self.ui.icon.setPixmap(qt.QPixmap(iconPath))
+                            'MUSTsegmenter.png')
+    self.ui.icon.setPixmap(qt.QPixmap(iconPath).scaled(250, 250))
 
     # Connections
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
