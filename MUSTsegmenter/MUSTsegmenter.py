@@ -847,8 +847,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         segmentNode = slicer.util.getNode('{0}_segmentation_{1}'.format(self.patientID, method))
       except:
         return False
-      segmentArray = self.getArrayFromSegmentationNode(petVolume, segmentNode)
-      segmentationsForMajVoting.append(segmentArray)
+      try:
+        segmentArray = self.getArrayFromSegmentationNode(petVolume, segmentNode)
+        segmentationsForMajVoting.append(segmentArray)
+      except AttributeError:
+        # method created no segmentation
+        continue
+
     voxelOverlaps = sum(segmentationsForMajVoting)
     if not isinstance(voxelOverlaps, int):
       for method in mvMethods:
