@@ -692,8 +692,15 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     self.createSphere(1.2, "peakSphere", False)
     peakNode = slicer.util.getNode("peakSphere_")
     peakArray = self.getArrayFromSegmentationNode(self.petVolume, peakNode)
-    slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(peakArray))
-    trimmedPeak = peakArray[slices]
+    try:
+      slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(peakArray))
+      trimmedPeak = peakArray[slices]
+    except:
+      # estimate SUVpeak
+      center = (1, 1, 1)
+      size = (4, 4, 4)
+      distance = np.linalg.norm(np.subtract(np.indices(size).T, np.asarray(center)), axis=len(center))
+      trimmedPeak = np.ones(size) * (distance <= 1)
 
     return trimmedPeak, pointListNode, peakNode
 
