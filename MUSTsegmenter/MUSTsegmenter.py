@@ -1107,7 +1107,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       dicomSeries = pydicom.dcmread(slice)
       try:
         # get scan time
-        scantime = datetime.datetime.strptime(dicomSeries.AcquisitionTime, '%H%M%S.%f')
+        acqTime = dicomSeries.AcquisitionTime
+        if '.' not in acqTime:
+          acqTime += ".0"
+        scantime = datetime.datetime.strptime(acqTime, '%H%M%S.%f')
         # calculate decay
         decay = np.exp(-np.log(2) * ((scantime - injectionTime).seconds) / halfLife)
         # calculate the dose decayed during procedure (Bq)
