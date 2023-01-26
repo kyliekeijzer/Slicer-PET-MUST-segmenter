@@ -567,7 +567,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         segmentName = segment.GetName()
         if thresh in segmentName:
           segmentNode = slicer.util.getNode(segmentName)
-          segmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode)
+          try:
+            segmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode)
+          except:
+            # no segmentation result
+            continue
           segmentImage = sitk.GetImageFromArray(segmentArray)
           segmentImage.SetSpacing(pixelSpacing)
 
