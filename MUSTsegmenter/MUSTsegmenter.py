@@ -1077,9 +1077,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     # retrieve general patient and scan information
     dicomSeries = pydicom.dcmread(imageFileList[0])
-    # get patient and scan ifo
+    # get patient and scan info
     self.patientID = dicomSeries.PatientID
-    self.patientAge = int(dicomSeries.PatientAge[:-1])
+    try:
+      self.patientAge = int(dicomSeries.PatientAge[:-1])
+    except AttributeError:
+      self.patientAge = int((datetime.datetime.strptime(dicomSeries.StudyDate, '%Y%m%d') -
+                             datetime.datetime.strptime(dicomSeries.PatientBirthDate, '%Y%m%d')).days)
     self.PixelSpacing = dicomSeries.PixelSpacing
     self.SliceThickness = dicomSeries.SliceThickness
 
@@ -1087,8 +1091,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       # get patient weight (grams)
       weight = float(dicomSeries.PatientWeight) * 1000
       # start time for the Radiopharmaceutical Injection
-      injectionTime = datetime.datetime.strptime(
-        dicomSeries.RadiopharmaceuticalInformationSequence[0].RadiopharmaceuticalStartTime, '%H%M%S.%f')
+      rpStartTime = dicomSeries.RadiopharmaceuticalInformationSequence[0].RadiopharmaceuticalStartTime
+      if '.' not in rpStartTime:
+        rpStartTime += ".0"
+      injectionTime = datetime.datetime.strptime(rpStartTime, '%H%M%S.%f')
       # half life for Radionuclide (seconds)
       halfLife = float(dicomSeries.RadiopharmaceuticalInformationSequence[0].RadionuclideHalfLife)
       # total dose injected for Radionuclide (Becquerels Bq)
