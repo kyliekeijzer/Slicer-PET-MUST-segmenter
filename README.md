@@ -133,6 +133,9 @@ A SelfTest (MUSTSegmenter) is available under the SelfTests and utilizes the Sam
 ## 5. License
 See LICENSE
 
-## 6. Contact
+## 6. Publication
+Keijzer, K., Niezink, A.G.H., de Boer, J.W., van Doesum, J.A., Noordzij, W., van Meerten, T. and van Dijk, L.V. (2023). Semi-automated 18F-FDG PET segmentation methods for tumor volume determination in Non-Hodgkin lymphoma patients: a literature review, implementation and multi-threshold evaluation. *Computational and Structural Biotechnology Journal*, 21, pp.1102–1114. [doi:10.1016/j.csbj.2023.01.023.](https://doi.org/10.1016/j.csbj.2023.01.023)
+
+## 7. Contact
 For any inquiries according to usage or bugs, please contact Kylie Keijzer ([k.keijzer@umcg.nl](mailto:k.keijzer@umcg.nl?subject=MUST-segmenter))
 
