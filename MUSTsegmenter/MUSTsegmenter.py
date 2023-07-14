@@ -559,14 +559,32 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
-    peakSphere, peakPoint, peakNode = self.createPeakSphere()
+    peakSphere = self.createPeakSphere()
     segmentationNodes = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')
 
     for thresh in thresholds:
       for segment in segmentationNodes:
         segmentName = segment.GetName()
         if thresh in segmentName:
+          singleFeaturesRows = []
           segmentNode = slicer.util.getNode(segmentName)
+          segmentations = segmentNode.GetSegmentation()
+          segmentationNames = segmentations.GetSegmentIDs()
+          # Individual segmentations
+          for segName in segmentationNames:
+            try:
+              subSegmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode, segName)
+            except:
+              # no segmentation result
+              continue
+            singleFeaturesRows = self.extractSingleSegmentFeatures(subSegmentArray, segName, suvImage,
+                                                                   pixelSpacing, peakSphere, singleFeaturesRows,
+                                                                   extractor)
+          singleFeaturesDf = self.pd.DataFrame(singleFeaturesRows)
+          savePath = "/".join(self.petSeriesPath.split('/')[:-1])
+          singleFeaturesFile = f'{savePath}/PET_features_patient_{self.patientID}_{thresh}.xlsx'
+          singleFeaturesDf.to_excel(singleFeaturesFile, index=False)
+          # Total features
           try:
             segmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode)
           except:
@@ -595,8 +613,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           segmentSuv = self.suvMap.copy()
           segmentSuv[segmentArray < 1.0] = 0.0
           suvPeak = self.calculateSuvPeak(peakSphere, segmentSuv)
-          slicer.mrmlScene.RemoveNode(peakPoint)
-          slicer.mrmlScene.RemoveNode(peakNode)
           pos = list(featuresRow.keys()).index('SUV_Median') + 1
           items = list(featuresRow.items())
           items.insert(pos, ('SUV_Peak', suvPeak))
@@ -605,12 +621,126 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           featuresRow["TLG"] = featuresRow["Volume (cc)"] * featuresRow["SUV_Mean"]
           featuresRows.append(featuresRow)
 
+          # Dissemination features
+          lesionsList = singleFeaturesDf.to_dict('records')
+          nrOfLesions = len(lesionsList)
+          featuresRow["Number of lesions"] = nrOfLesions
+          dmaxPatient, spreadPatient = self.getDmaxAndSpreadPatient(lesionsList, nrOfLesions, pixelSpacing)
+          featuresRow["Dmax Patient (mm)"] = dmaxPatient
+          featuresRow["Spread Patient (mm)"] = spreadPatient
+          max_index = singleFeaturesDf['Volume (cc)'].idxmax()
+          largest_lesion = singleFeaturesDf.loc[max_index][2:]
+          dmaxBulk, spreadBulk = self.getDmaxAndSpreadBulk(lesionsList, largest_lesion, pixelSpacing)
+          featuresRow["Dmax Bulk (mm)"] = dmaxBulk
+          featuresRow["Spread Bulk (mm)"] = spreadBulk
+
     featuresDf = self.pd.DataFrame(featuresRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
-    volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}.xlsx'
+    volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}_total.xlsx'
     featuresDf.to_excel(volumeFilePath, index=False)
     slicer.util.infoDisplay(f'PET feature extraction finished, features stored at: {volumeFilePath}',
                             'PET features extracted')
+
+  def getDmaxAndSpreadPatient(self, lesions, lesionsNr, pixelSpacing):
+    """
+    Method that calculates the distance between the given
+    lesions that are the furthest apart (D-max patient).
+    Also calculates the largest value (over all lesions)
+    of the sum of the distances from a lesion to all
+    the other lesions (SPREAD patient).
+    """
+    max_distance = 0.0
+    sums_of_distances = []
+    for i in range(lesionsNr):
+      distances_list = []
+      location_a = lesions[i]
+
+      if i < lesionsNr - 1:
+        others = lesions[:i] + lesions[i + 1:]
+      else:
+        others = lesions[:i]
+
+      for location_b in others:
+        distance = self.calculate_distance(location_a['SUV_Max_location'],
+                                           location_b['SUV_Max_location'], pixelSpacing)
+        distances_list.append(distance)
+        if distance > max_distance:
+          max_distance = distance
+      sums_of_distances.append(sum(distances_list))
+
+    return max_distance, max(sums_of_distances)
+
+  def getDmaxAndSpreadBulk(self, lesions, largest_lesion, pixelSpacing):
+    """
+    Method that calculates the distance between the given largest lesion and the lesion
+    farthest away from that bulk (D-max bulk). Also calculates the sum of distances of that
+    bulk from all other lesions (SPREAD bulk).
+    """
+    largest_lesion_location = largest_lesion['SUV_Max_location']
+    distances = []
+    for lesion in lesions:
+      distance = self.calculate_distance(largest_lesion_location,
+                                         lesion['SUV_Max_location'], pixelSpacing)
+      distances.append(distance)
+    return max(distances), sum(distances)
+
+  def calculate_distance(self, location_a, location_b, pixel_spacing):
+    """
+    Method that calculates the Euclidean distance in mm between two given 3D points.
+    """
+    z_index_a, y_index_a, x_index_a = location_a
+    z_index_b, y_index_b, x_index_b = location_b
+    z_diff = z_index_a - z_index_b
+    y_diff = y_index_a - y_index_b
+    x_diff = x_index_a - x_index_b
+    spacing_x, spacing_y, spacing_z = pixel_spacing
+
+    distance = np.sqrt((x_diff * spacing_x) ** 2 +
+                       (y_diff * spacing_y) ** 2 +
+                       (z_diff * spacing_z) ** 2)
+
+    return distance
+
+  def extractSingleSegmentFeatures(self, subSegmentArray, segmentName, suvImage, pixelSpacing, peakSphere, singleFeaturesRows, extractor):
+    segmentImage = sitk.GetImageFromArray(subSegmentArray)
+    segmentImage.SetSpacing(pixelSpacing)
+
+    featuresRow = {
+      'Segmentation': segmentName
+    }
+    featureVector = extractor.execute(suvImage, segmentImage)
+    for feature in featureVector.keys():
+      if feature.find('original') == 0:
+        value = float(featureVector[feature])
+        featureDesc = feature[9:].replace("firstorder", "SUV").replace("shape_", "").replace("Voxel", "")
+        if "Volume" in featureDesc:
+          featureDesc += " (cc)"
+          featuresRow[featureDesc] = value / 1000
+        else:
+          featuresRow[featureDesc] = value
+      else:
+        featuresRow[feature] = featureVector[feature]
+
+    # Calculate SUVpeak
+    segmentSuv = self.suvMap.copy()
+    segmentSuv[subSegmentArray < 1.0] = 0.0
+    suvPeak = self.calculateSuvPeak(peakSphere, segmentSuv)
+    pos = list(featuresRow.keys()).index('SUV_Median') + 1
+
+    # SUV max location
+    pos_suv_max = list(featuresRow.keys()).index('SUV_Maximum') + 1
+    suv_max_loc = np.unravel_index(segmentSuv.argmax(), segmentSuv.shape)
+
+    items = list(featuresRow.items())
+    items.insert(pos, ('SUV_Peak', suvPeak))
+    items.insert(pos_suv_max, ('SUV_Max_location', suv_max_loc))
+    featuresRow = dict(items)
+
+    # TLG
+    featuresRow["TLG"] = featuresRow["Volume (cc)"] * featuresRow["SUV_Mean"]
+
+    singleFeaturesRows.append(featuresRow)
+    return singleFeaturesRows
 
   def extractVOIsMetrics(self, reversed):
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
@@ -634,7 +764,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     suvImage = sitk.GetImageFromArray(self.suvMap)
     suvImage.SetSpacing(pixelSpacing)
 
-    peakSphere, peakPoint, peakNode = self.createPeakSphere()
+    peakSphere = self.createPeakSphere()
     vois = slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode')
     for voi in vois:
       voiName = voi.GetName()
@@ -661,8 +791,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         voiSuv = self.suvMap.copy()
         voiSuv[voiArray < 1.0] = 0.0
         suvPeak = self.calculateSuvPeak(peakSphere, voiSuv)
-        slicer.mrmlScene.RemoveNode(peakPoint)
-        slicer.mrmlScene.RemoveNode(peakNode)
         pos = list(featuresRow.keys()).index('SUV_Median') + 1
         items = list(featuresRow.items())
         items.insert(pos, ('SUV_Peak', suvPeak))
@@ -706,7 +834,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       distance = np.linalg.norm(np.subtract(np.indices(size).T, np.asarray(center)), axis=len(center))
       trimmedPeak = np.ones(size) * (distance <= 1)
 
-    return trimmedPeak, pointListNode, peakNode
+    slicer.mrmlScene.RemoveNode(pointListNode)
+    slicer.mrmlScene.RemoveNode(peakNode)
+
+    return trimmedPeak
 
   def calculateSuvPeak(self, sphere, suvArray):
     sphereShape = sphere.shape
@@ -782,7 +913,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     self.suvImageArray = suvMap.copy()
     self.suvThreshold = suvThreshold
     self.thresholdDescr = thresholdDescr
-    for i, seed in enumerate(seeds):
+    for i in range(0, len(seeds)):
+      seed = seeds[i]
       if thresholdDescr == 'A50P':
         self.suvThreshold = self.getPeakBackgroundThreshold(i, suvThreshold)
       # perform the segmentation for the given seed
@@ -794,11 +926,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         # convert segmentation image to a labelmap node
         labelmapNode = self.createLabelMapNode(origin, segmentImage, spacing)
         labelmapNodes.append(labelmapNode)
-
-    self.convertNodesToSegmentationNode(labelmapNodes, True, False, 'False', thresholdDescr)
+    if len(labelmapNodes) > 0:
+      self.convertNodesToSegmentationNode(labelmapNodes, True, False, 'False', thresholdDescr)
 
   def getPeakBackgroundThreshold(self, i, bgValue):
-    peakSphere, peakPoint, peakNode = self.createPeakSphere()
+    peakSphere = self.createPeakSphere()
     voiNode = slicer.util.getNode(f'{i}_A50P_')
     voiArray = self.getArrayFromSegmentationNode(self.petVolume, voiNode)
 
@@ -806,8 +938,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     voiSuv = self.suvMap.copy()
     voiSuv[voiArray < 1.0] = 0.0
     suvPeak = self.calculateSuvPeak(peakSphere, voiSuv)
-    slicer.mrmlScene.RemoveNode(peakPoint)
-    slicer.mrmlScene.RemoveNode(peakNode)
     slicer.mrmlScene.RemoveNode(voiNode)
 
     # Calculate A50P threshold
@@ -1042,18 +1172,22 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       return True
     return False
 
-  def getArrayFromSegmentationNode(self, volumeNode, segmentsNode):
+  def getArrayFromSegmentationNode(self, volumeNode, segmentsNode, fromSubSegment=False):
     """
-    Method that gets all the organ segmentations from the given node name
+    Method that gets all the segmentations from the given node name
     """
-    segmentsNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
-    labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-    slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentsNode, labelmapVolumeNode,
-                                                                         slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY)
-    segmentationsArray = slicer.util.arrayFromVolume(labelmapVolumeNode)
+    if fromSubSegment != False:
+      segmentationsArray = slicer.util.arrayFromSegmentBinaryLabelmap(segmentsNode, fromSubSegment, volumeNode)
+    else:
+      segmentsNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
+      labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+      slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentsNode, labelmapVolumeNode,
+                                                                           slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY)
+      segmentationsArray = slicer.util.arrayFromVolume(labelmapVolumeNode)
+      slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+
     # set segment pixels to 1.0
     segmentationsArray[segmentationsArray > 0] = 1.0
-    slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
 
     return segmentationsArray
 
