@@ -568,6 +568,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         if thresh in segmentName:
           singleFeaturesRows = []
           segmentNode = slicer.util.getNode(segmentName)
+
+          # for converting
+          segmentNode.CreateDefaultDisplayNodes()
+          segmentNode.SetReferenceImageGeometryParameterFromVolumeNode(self.petVolume)
+
           segmentations = segmentNode.GetSegmentation()
           segmentationNames = segmentations.GetSegmentIDs()
           # Individual segmentations
@@ -577,19 +582,23 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
             except:
               # no segmentation result
               continue
+
             singleFeaturesRows = self.extractSingleSegmentFeatures(subSegmentArray, segName, suvImage,
                                                                    pixelSpacing, peakSphere, singleFeaturesRows,
                                                                    extractor)
+
           singleFeaturesDf = self.pd.DataFrame(singleFeaturesRows)
           savePath = "/".join(self.petSeriesPath.split('/')[:-1])
           singleFeaturesFile = f'{savePath}/PET_features_patient_{self.patientID}_{thresh}.xlsx'
           singleFeaturesDf.to_excel(singleFeaturesFile, index=False)
+
           # Total features
           try:
             segmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode)
           except:
             # no segmentation result
             continue
+
           segmentImage = sitk.GetImageFromArray(segmentArray)
           segmentImage.SetSpacing(pixelSpacing)
 
@@ -619,7 +628,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           featuresRow = dict(items)
           # TLG
           featuresRow["TLG"] = featuresRow["Volume (cc)"] * featuresRow["SUV_Mean"]
-          featuresRows.append(featuresRow)
 
           # Dissemination features
           lesionsList = singleFeaturesDf.to_dict('records')
@@ -633,6 +641,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           dmaxBulk, spreadBulk = self.getDmaxAndSpreadBulk(lesionsList, largest_lesion, pixelSpacing)
           featuresRow["Dmax Bulk (mm)"] = dmaxBulk
           featuresRow["Spread Bulk (mm)"] = spreadBulk
+
+          featuresRows.append(featuresRow)
 
     featuresDf = self.pd.DataFrame(featuresRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
@@ -708,7 +718,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     featuresRow = {
       'Segmentation': segmentName
     }
-    featureVector = extractor.execute(suvImage, segmentImage)
+
+    try:
+      featureVector = extractor.execute(suvImage, segmentImage)
+    except ValueError:
+      # Nothing is segmented
+      return singleFeaturesRows
+
     for feature in featureVector.keys():
       if feature.find('original') == 0:
         value = float(featureVector[feature])
