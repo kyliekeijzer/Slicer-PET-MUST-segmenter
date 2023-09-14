@@ -671,8 +671,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         others = lesions[:i]
 
       for location_b in others:
-        distance = self.calculate_distance(location_a['SUV_Max_location'],
-                                           location_b['SUV_Max_location'], pixelSpacing)
+        distance = self.calculate_distance(location_a['diagnostics_Mask-original_CenterOfMassIndex'],
+                                           location_b['diagnostics_Mask-original_CenterOfMassIndex'], pixelSpacing)
         distances_list.append(distance)
         if distance > max_distance:
           max_distance = distance
@@ -686,11 +686,11 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     farthest away from that bulk (D-max bulk). Also calculates the sum of distances of that
     bulk from all other lesions (SPREAD bulk).
     """
-    largest_lesion_location = largest_lesion['SUV_Max_location']
+    largest_lesion_location = largest_lesion['diagnostics_Mask-original_CenterOfMassIndex']
     distances = []
     for lesion in lesions:
       distance = self.calculate_distance(largest_lesion_location,
-                                         lesion['SUV_Max_location'], pixelSpacing)
+                                         lesion['diagnostics_Mask-original_CenterOfMassIndex'], pixelSpacing)
       distances.append(distance)
     return max(distances), sum(distances)
 
@@ -737,19 +737,14 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       else:
         featuresRow[feature] = featureVector[feature]
 
-    # Calculate SUVpeak
     segmentSuv = self.suvMap.copy()
     segmentSuv[subSegmentArray < 1.0] = 0.0
+    # Calculate SUVpeak
     suvPeak = self.calculateSuvPeak(peakSphere, segmentSuv)
     pos = list(featuresRow.keys()).index('SUV_Median') + 1
 
-    # SUV max location
-    pos_suv_max = list(featuresRow.keys()).index('SUV_Maximum') + 1
-    suv_max_loc = np.unravel_index(segmentSuv.argmax(), segmentSuv.shape)
-
     items = list(featuresRow.items())
     items.insert(pos, ('SUV_Peak', suvPeak))
-    items.insert(pos_suv_max, ('SUV_Max_location', suv_max_loc))
     featuresRow = dict(items)
 
     # TLG
