@@ -50,14 +50,16 @@ b. ![](screenshots/5.png?raw=true "")
    ![](screenshots/8.png?raw=true "") &rarr; ![](screenshots/40.png?raw=true "") &rarr; ![](screenshots/9.png?raw=true "")  
 2. Choose segmentation method(s):  
    ![](screenshots/10.png?raw=true "")  
-   - Fixed thresholds: **SUV 2.5**, **SUV 3.0** and **SUV 4.0**  
-   - **41% SUVmax**  
+   - Fixed thresholds: **SUV 2.5**, **SUV 3.0** and **SUV 4.0**
+   - **41% SUVmax (ROI based)**  
      a. Place regions of interest (ROIs) around the identified tumors (the seeds don't need to be removed)  
         ![](screenshots/11.png?raw=true "") &rarr;  
      (click on an image slice to initialize the annotation ROI)  
         ![](screenshots/12.png?raw=true "")  
      b. (optional) Take a threshold for each individual ROI  
         ![](screenshots/13.png?raw=true "")  
+   - **41% SUVmax (seed based)**  
+     - No additional steps needed
    - **A50P**  
      a. Create a VOI in the right lobe of the liver and in the right lung, as described in section A.  
      b. Rename the VOIs to 'VOI_liver' and 'VOI_lung'  
@@ -69,7 +71,7 @@ b. ![](screenshots/5.png?raw=true "")
    - Majority Voting: **MV2** and **MV3**  
      a. Make sure the following segmentation methods are *additionally* selected, 
      or that those segmentation results are present in the scene:  
-        *SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST*  
+        *SUV 2.5, SUV 4.0, 41% SUVmax (ROI- or seed-based), Liver SUVmax and PERCIST*  
    - **Brain region based**  
      a. Provide or create a brain segmentation  
         ![](screenshots/22.png?raw=true "")  
