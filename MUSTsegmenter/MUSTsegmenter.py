@@ -155,6 +155,8 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if self.ui.suv_per_roi.checkState() > 0:
         self.suvPerRoi = True
       thresholds.append('41suvMax')
+    if self.ui.SUV41maxSeed.checkState() > 0:
+      thresholds.append('41suvMaxSeed')
     if self.ui.LiverSUVmax.checkState() > 0:
       thresholds.append('liverSUVmax')
     if self.ui.PERCIST.checkState() > 0:
@@ -205,6 +207,7 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       'suv3.0': [0.0, 0.8, 0.2],
       'suv4.0': [0.55, 0.82, 0.35],
       '41suvMax': [0.22, 0.08, 0.94],
+      '41suvMaxSeed': [0.22, 0.08, 0.94],
       'liverSUVmax': [0.08, 0.37, 0.94],
       'PERCIST': [0.04, 0.60, 0.87],
       'A50P': [0.26, 0.16, 0.79],
@@ -260,6 +263,8 @@ class MUSTsegmenterWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       thresholds.append('suv4.0')
     if self.ui.SUV41max.checkState() > 0:
       thresholds.append('41suvMax')
+    if self.ui.SUV41maxSeed.checkState() > 0:
+      thresholds.append('41suvMaxSeed')
     if self.ui.LiverSUVmax.checkState() > 0:
       thresholds.append('liverSUVmax')
     if self.ui.PERCIST.checkState() > 0:
@@ -336,7 +341,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # create segmentations node
     segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
 
-    if method == 'VOI' or method == 'peakSphere' or 'A50P' in method:
+    if method == 'VOI' or method == 'peakSphere' or 'A50P' in method or '41suvMaxSeed' in method:
       colors = [0.24, 0.42, 0.86]
       thickness = 1
       segmentationNode.SetName(f'{method}_')
@@ -364,7 +369,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       segmentations.AddSegment(vtkSegment)
 
     # apply matrix transform to position the segmentation result
-    if 'A50P' not in method and not fromLabelMap and method != 'VOI':
+    if 'A50P' not in method and '41suvMaxSeed' not in method and not fromLabelMap and method != 'VOI':
       transformMatrix = vtk.vtkMatrix4x4()
       transformMatrix.SetElement(0, 0, -1.0)
       transformMatrix.SetElement(1, 1, -1.0)
@@ -508,15 +513,21 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     # perform 41% SUVmax segmentation
     if '41suvMax' in segmentationMethods:
       self.createSuvMaxSegmentation(suvMap, suvPerRoi, shape, origin, spacing, petVolume, roiFilter)
+    if '41suvMaxSeed' in segmentationMethods:
+      self.createSuvMaxSeedSegmentation(suvMap, seeds, shape, origin, spacing)
     # perform majority vote segmentation
     if performMVsegmentation:
-      majorityVotingMethods = ['suv2.5', 'suv4.0', '41suvMax', 'liverSUVmax', 'PERCIST']
+      if '41suvMaxSeed' in segmentationMethods:
+        maxMethod = '41suvMaxSeed'
+      else:
+        maxMethod = '41suvMax'
+      majorityVotingMethods = ['suv2.5', 'suv4.0', maxMethod, 'liverSUVmax', 'PERCIST']
       finished = self.createMajVotingSegmentation(segmentationsForMajVoting, mvMethods, origin,
                                                   spacing, majorityVotingMethods, petVolume)
       if not finished:
         message = f'Segmentation finished, but Majority Voting segmentation not performed. ' \
                   f'Please select the following methods to perform MV segmentation: ' \
-                  f'SUV 2.5, SUV 4.0, 41% SUVmax, Liver SUVmax and PERCIST'
+                  f'SUV 2.5, SUV 4.0, 41% SUVmax (ROI or seed-based), Liver SUVmax and PERCIST'
 
     qt.QApplication.setOverrideCursor(qt.Qt.ArrowCursor)
     slicer.util.infoDisplay(message, 'Segmentations created')
@@ -989,6 +1000,36 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         labelMapNode = self.createLabelMapNode(origin, segmentImage, spacing)
         self.convertNodesToSegmentationNode([labelMapNode], True, False, 'False', '41suvMax')
 
+  def createSuvMaxSeedSegmentation(self, suvMap, seeds, shape, origin, spacing):
+    """
+    Method that creates the segmentation result based on SUVmax thresholding
+    """
+    labelmapNodes = []
+    self.maxX, self.maxY, self.maxZ = shape[2], shape[1], shape[0]
+    self.suvImageArray = suvMap.copy()
+    self.thresholdDescr = '41suvMaxSeed'
+    for i in range(0, len(seeds)):
+      seed = seeds[i]
+
+      # Calculate 41suvMaxSeed threshold
+      voiNode = slicer.util.getNode(f'{i}_41suvMaxSeed_')
+      voiArray = self.getArrayFromSegmentationNode(self.petVolume, voiNode)
+      voiSuv = self.suvMap.copy()
+      voiSuv[voiArray < 1.0] = 0.0
+      slicer.mrmlScene.RemoveNode(voiNode)
+      threshold = 0.41 * np.max(voiSuv)
+      print(threshold)
+      self.suvThreshold = threshold
+
+      # perform the segmentation
+      segmentImage, segmentArray = self.seedGrowSegmentation(seed)
+      if np.count_nonzero(segmentArray) > 1:
+        self.suvImageArray[segmentArray == 1] = 0.0
+        labelmapNode = self.createLabelMapNode(origin, segmentImage, spacing)
+        labelmapNodes.append(labelmapNode)
+    if len(labelmapNodes) > 0:
+      self.convertNodesToSegmentationNode(labelmapNodes, True, False, 'False', '41suvMaxSeed')
+
   def createMajVotingSegmentation(self, segmentationsForMajVoting, mvMethods, origin, spacing, segmentationMethods,
                                   petVolume):
     """
@@ -1334,6 +1375,9 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           if 'A50P' in segmentationMethods:
             rasCoords = pointList.GetNthControlPointPosition(i)
             self.createSphere(3, f'{i}_A50P', rasCoords)
+          if '41suvMaxSeed' in segmentationMethods:
+            rasCoords = pointList.GetNthControlPointPosition(i)
+            self.createSphere(1.2, f'{i}_41suvMaxSeed', rasCoords)
 
     return seedCoordinates
 
@@ -1427,6 +1471,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       'suv3.0': [0.0, 0.8, 0.2],
       'suv4.0': [0.55, 0.82, 0.35],
       '41suvMax': [0.22, 0.08, 0.94],
+      '41suvMaxSeed': [0.22, 0.08, 0.94],
       'A50P': [0.26, 0.16, 0.79],
       'liverSUVmax': [0.08, 0.37, 0.94],
       'PERCIST': [0.04, 0.60, 0.87],
@@ -1434,7 +1479,7 @@ class MUSTsegmenterTest(ScriptedLoadableModuleTest):
       'MV3': [1.0, 0.48, 0.48]
     }
     self.segmentationMethods = ['suv2.5', 'suv3.0', 'suv4.0',
-                                '41suvMax', 'liverSUVmax', 'PERCIST',
+                                '41suvMax', '41suvMaxSeed', 'liverSUVmax', 'PERCIST',
                                 'A50P', 'MV2', 'MV3']
 
   def runTest(self):
