@@ -590,6 +590,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
           for segName in segmentationNames:
             try:
               subSegmentArray = self.getArrayFromSegmentationNode(self.petVolume, segmentNode, segName)
+              segName = segmentations.GetSegment(segName).GetName()
             except:
               # no segmentation result
               continue
