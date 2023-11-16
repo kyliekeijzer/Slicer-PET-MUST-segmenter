@@ -1019,7 +1019,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       voiSuv[voiArray < 1.0] = 0.0
       slicer.mrmlScene.RemoveNode(voiNode)
       threshold = 0.41 * np.max(voiSuv)
-      print(threshold)
       self.suvThreshold = threshold
 
       # perform the segmentation
@@ -1290,36 +1289,25 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       halfLife = float(dicomSeries.RadiopharmaceuticalInformationSequence[0].RadionuclideHalfLife)
       # total dose injected for Radionuclide (Becquerels Bq)
       injectedDose = float(dicomSeries.RadiopharmaceuticalInformationSequence[0].RadionuclideTotalDose)
+
+      # get scan time
+      acqTime = dicomSeries.AcquisitionTime
+      if '.' not in acqTime:
+        acqTime += ".0"
+      scantime = datetime.datetime.strptime(acqTime, '%H%M%S.%f')
+      # calculate decay
+      decay = np.exp(-np.log(2) * ((scantime - injectionTime).seconds) / halfLife)
+      # calculate the dose decayed during procedure (Bq)
+      injectedDoseDecay = injectedDose * decay
     except:
       # make estimation
       traceback.print_exc()
       weight = 75000
-      injectionTime = 3600
-      halfLife = 6588
-      injectedDose = 420000000
       isEstimated = True
+      decay = np.exp(-np.log(2) * (1.75 * 3600) / 6588)  # 90 min waiting time, 15 min preparation
+      injectedDoseDecay = 420000000 * decay  # 420 MBq
 
-    # iter through all slices to compute SUV values
-    for index, slice in enumerate(imageFileList):
-      dicomSeries = pydicom.dcmread(slice)
-      try:
-        # get scan time
-        acqTime = dicomSeries.AcquisitionTime
-        if '.' not in acqTime:
-          acqTime += ".0"
-        scantime = datetime.datetime.strptime(acqTime, '%H%M%S.%f')
-        # calculate decay
-        decay = np.exp(-np.log(2) * ((scantime - injectionTime).seconds) / halfLife)
-        # calculate the dose decayed during procedure (Bq)
-        injectedDoseDecay = injectedDose * decay
-      except:
-        traceback.print_exc()
-        decay = np.exp(-np.log(2) * (1.75 * 3600) / 6588)  # 90 min waiting time, 15 min preparation
-        injectedDoseDecay = 420000000 * decay  # 420 MBq
-        isEstimated = True
-
-      # Calculate SUV (g/ml)
-      suvMap[index, :, :] = imageArray[index, :, :] * weight / injectedDoseDecay
+    suvMap = imageArray * weight / injectedDoseDecay
 
     return suvMap, isEstimated
 
