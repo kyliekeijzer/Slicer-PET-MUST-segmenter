@@ -601,7 +601,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
           singleFeaturesDf = self.pd.DataFrame(singleFeaturesRows)
           savePath = "/".join(self.petSeriesPath.split('/')[:-1])
-          singleFeaturesFile = f'{savePath}/PET_features_patient_{self.patientID}_{thresh}.xlsx'
+          singleFeaturesFile = f'{savePath}/PET_features_patient_{self.patientID}_{thresh}_0.xlsx'
+
+          counter = 0
+          while os.path.exists(singleFeaturesFile):
+            counter += 1
+            singleFeaturesFile = f'{savePath}/PET_features_patient_{self.patientID}_{thresh}_{counter}.xlsx'
+
           singleFeaturesDf.to_excel(singleFeaturesFile, index=False)
 
           # Total features
@@ -658,7 +664,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     featuresDf = self.pd.DataFrame(featuresRows)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
-    volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}_total.xlsx'
+    volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}_total_0.xlsx'
+
+    counter = 0
+    while os.path.exists(volumeFilePath):
+      counter += 1
+      volumeFilePath = f'{savePath}/PET_features_patient_{self.patientID}_total_{counter}.xlsx'
+
     featuresDf.to_excel(volumeFilePath, index=False)
     slicer.util.infoDisplay(f'PET feature extraction finished, features stored at: {volumeFilePath}',
                             'PET features extracted')
@@ -768,17 +780,16 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
   def extractVOIsMetrics(self, reversed):
     pixelVolume, pixelSpacing = self.getCubicCmPerPixel(reversed)
     savePath = "/".join(self.petSeriesPath.split('/')[:-1])
-    fileName = f"VOIs_metrics_patient_{self.patientID}.xlsx"
+    fileName = f"VOIs_metrics_patient_{self.patientID}_0.xlsx"
     filePath = f'{savePath}/{fileName}'
 
-    if os.path.exists(filePath):
-      if slicer.util.confirmOkCancelDisplay(f"File '{fileName}' already exists, do you want to overwrite it?"):
-        self.performVOImetricsExtraction(filePath, pixelSpacing)
-      else:
-        slicer.util.infoDisplay(f'VOIs metrics calculation canceled.',
-                                'Canceled')
-    else:
-      self.performVOImetricsExtraction(filePath, pixelSpacing)
+    counter = 0
+    while os.path.exists(filePath):
+      counter += 1
+      fileName = f"VOIs_metrics_patient_{self.patientID}_{counter}.xlsx"
+      filePath = f'{savePath}/{fileName}'
+
+    self.performVOImetricsExtraction(filePath, pixelSpacing)
 
   def performVOImetricsExtraction(self, filePath, pixelSpacing):
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
