@@ -913,6 +913,10 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
                             'RobustMeanAbsoluteDeviation',
                             'RootMeanSquared', 'Skewness', 'StandardDeviation', 'TotalEnergy', 'Uniformity', 'Variance']
       extractor.enableFeaturesByName(shape=shapeFeatures, firstorder=firstorderFeatures)
+      # add textural features
+      extractor.enableFeatureClassByName('glcm')
+      extractor.enableFeatureClassByName('glszm')
+      extractor.enableFeatureClassByName('glrlm')
     elif method == 'matv':
       extractor.enableFeaturesByName(shape=['MeshVolume'])
     elif method == 'VOIs':
@@ -1317,6 +1321,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       isEstimated = True
       decay = np.exp(-np.log(2) * (1.75 * 3600) / 6588)  # 90 min waiting time, 15 min preparation
       injectedDoseDecay = 420000000 * decay  # 420 MBq
+      print("isEstimated", isEstimated)
 
     suvMap = imageArray * weight / injectedDoseDecay
 
