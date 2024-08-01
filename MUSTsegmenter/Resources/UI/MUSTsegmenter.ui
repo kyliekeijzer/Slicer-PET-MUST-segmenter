@@ -726,6 +726,18 @@
        </item>
       </layout>
      </item>
+     <item row="9" column="2">
+      <widget class="QCheckBox" name="LiverSUVmean">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>125% Liver SUVmean</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>

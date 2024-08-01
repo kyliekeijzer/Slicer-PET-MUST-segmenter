@@ -64,7 +64,7 @@ b. ![](screenshots/5.png?raw=true "")
      a. Create a VOI in the right lobe of the liver and in the right lung, as described in section A.  
      b. Rename the VOIs to 'VOI_liver' and 'VOI_lung'  
      c. *Delete* the 'VOI' Point List before segmentation!  
-   - Liver-based thresholds: **Liver SUVmax** and **PERCIST**  
+   - Liver-based thresholds: **Liver SUVmax**, **PERCIST** and **125% Liver SUVmean**  
      a. Create a VOI in the right lobe of the liver as described in section A.  
      b. Rename the VOI to 'VOI_liver'  
      c. *Delete* the 'VOI' Point List before segmentation!  
