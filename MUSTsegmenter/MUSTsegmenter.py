@@ -1304,15 +1304,23 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     try:
       # get patient weight (grams)
       weight = float(dicomSeries.PatientWeight) * 1000
+
+      rph_info = dicomSeries.RadiopharmaceuticalInformationSequence[0]
+
       # start time for the Radiopharmaceutical Injection
-      rpStartTime = dicomSeries.RadiopharmaceuticalInformationSequence[0].RadiopharmaceuticalStartTime
-      if '.' not in rpStartTime:
-        rpStartTime += ".0"
-      injectionTime = datetime.datetime.strptime(rpStartTime, '%H%M%S.%f')
+      if hasattr(rph_info, "RadiopharmaceuticalStartDateTime"):
+        injectionTime = datetime.datetime.strptime(rph_info.RadiopharmaceuticalStartDateTime, '%Y%m%d%H%M%S.%f')
+      else:
+        rpStartTime = rph_info.RadiopharmaceuticalStartTime
+        if '.' not in rpStartTime:
+          rpStartTime += ".0"
+        injectionTime = datetime.datetime.strptime(rpStartTime, '%H%M%S.%f')
+
       # half life for Radionuclide (seconds)
-      halfLife = float(dicomSeries.RadiopharmaceuticalInformationSequence[0].RadionuclideHalfLife)
+      halfLife = float(rph_info.RadionuclideHalfLife)
+
       # total dose injected for Radionuclide (Becquerels Bq)
-      injectedDose = float(dicomSeries.RadiopharmaceuticalInformationSequence[0].RadionuclideTotalDose)
+      injectedDose = float(rph_info.RadionuclideTotalDose)
 
       # get scan time
       acqTime = dicomSeries.AcquisitionTime
