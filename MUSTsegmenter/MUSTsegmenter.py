@@ -1322,11 +1322,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       # total dose injected for Radionuclide (Becquerels Bq)
       injectedDose = float(rph_info.RadionuclideTotalDose)
 
-      # get scan time
+      # Get scan date and time
+      acqDate = dicomSeries.AcquisitionDate
       acqTime = dicomSeries.AcquisitionTime
       if '.' not in acqTime:
         acqTime += ".0"
-      scantime = datetime.datetime.strptime(acqTime, '%H%M%S.%f')
+      scantime = datetime.datetime.strptime(acqDate + acqTime, '%Y%m%d%H%M%S.%f')
+
       # calculate decay
       decay = np.exp(-np.log(2) * ((scantime - injectionTime).seconds) / halfLife)
       # calculate the dose decayed during procedure (Bq)
