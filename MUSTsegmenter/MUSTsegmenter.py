@@ -1314,7 +1314,8 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
         rpStartTime = rph_info.RadiopharmaceuticalStartTime
         if '.' not in rpStartTime:
           rpStartTime += ".0"
-        injectionTime = datetime.datetime.strptime(rpStartTime, '%H%M%S.%f')
+        injDate = dicomSeries.AcquisitionDate
+        injectionTime = datetime.datetime.strptime(injDate + rpStartTime, '%Y%m%d%H%M%S.%f')
 
       # half life for Radionuclide (seconds)
       halfLife = float(rph_info.RadionuclideHalfLife)
@@ -1330,7 +1331,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       scantime = datetime.datetime.strptime(acqDate + acqTime, '%Y%m%d%H%M%S.%f')
 
       # calculate decay
-      decay = np.exp(-np.log(2) * ((scantime - injectionTime).seconds) / halfLife)
+      decay = np.exp(-np.log(2) * ((scantime - injectionTime).total_seconds()) / halfLife)
       # calculate the dose decayed during procedure (Bq)
       injectedDoseDecay = injectedDose * decay
     except:
