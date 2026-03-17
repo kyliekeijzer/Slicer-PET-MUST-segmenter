@@ -906,7 +906,7 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     return out.item()
 
   def createExtractor(self, method):
-    extractor = self.featureextractor.RadiomicsFeatureExtractor()
+    extractor = self.featureextractor.RadiomicsFeatureExtractor(binWidth=0.1)
     extractor.disableAllFeatures()
     if method == 'all':
       shapeFeatures = ['MeshVolume', 'VoxelVolume', 'Compactness1', 'Compactness2', 'Elongation', 'Flatness',
@@ -1279,6 +1279,29 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
     return image, imageArray
 
+  def parse_dicom_time(self, date_str, time_str):
+    """
+    date_str: YYYYMMDD
+    time_str: HHMMSS or HHMMSS.frac
+    """
+    if '.' not in time_str:
+      time_str += '.0'
+    return datetime.datetime.strptime(
+      date_str + time_str,
+      "%Y%m%d%H%M%S.%f"
+    )
+
+  def parse_dicom_datetime(self, dt_str):
+    """
+    dt_str: YYYYMMDDHHMMSS or YYYYMMDDHHMMSS.frac
+    """
+    if '.' not in dt_str:
+      dt_str += '.0'
+    return datetime.datetime.strptime(
+      dt_str,
+      "%Y%m%d%H%M%S.%f"
+    )
+
   def computeSuvMap(self, imageFileList):
     """
     Method that computes the SUVmap of a raw input PET volume.
@@ -1287,7 +1310,6 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     """
     isEstimated = False
     image, imageArray = self.readDicomSeriesFiles(imageFileList)
-    suvMap = np.zeros(imageArray.shape)
 
     # retrieve general patient and scan information
     dicomSeries = pydicom.dcmread(imageFileList[0])
@@ -1296,8 +1318,14 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
     try:
       self.patientAge = int(dicomSeries.PatientAge[:-1])
     except AttributeError:
-      self.patientAge = int((datetime.datetime.strptime(dicomSeries.StudyDate, '%Y%m%d') -
-                             datetime.datetime.strptime(dicomSeries.PatientBirthDate, '%Y%m%d')).days)
+      try:
+        self.patientAge = int((datetime.datetime.strptime(dicomSeries.StudyDate, '%Y%m%d') -
+                               datetime.datetime.strptime(dicomSeries.PatientBirthDate, '%Y%m%d')).days)
+      except ValueError:
+        birth_date = dicomSeries.PatientBirthDate
+        if not birth_date:
+          print("Birthdate not available")
+          self.patientAge = 50
     self.PixelSpacing = dicomSeries.PixelSpacing
     self.SliceThickness = dicomSeries.SliceThickness
 
@@ -1309,13 +1337,14 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
 
       # start time for the Radiopharmaceutical Injection
       if hasattr(rph_info, "RadiopharmaceuticalStartDateTime"):
-        injectionTime = datetime.datetime.strptime(rph_info.RadiopharmaceuticalStartDateTime, '%Y%m%d%H%M%S.%f')
+        injectionTime = self.parse_dicom_datetime(
+          rph_info.RadiopharmaceuticalStartDateTime
+        )
       else:
-        rpStartTime = rph_info.RadiopharmaceuticalStartTime
-        if '.' not in rpStartTime:
-          rpStartTime += ".0"
-        injDate = dicomSeries.AcquisitionDate
-        injectionTime = datetime.datetime.strptime(injDate + rpStartTime, '%Y%m%d%H%M%S.%f')
+        injectionTime = self.parse_dicom_time(
+          dicomSeries.AcquisitionDate,
+          rph_info.RadiopharmaceuticalStartTime
+        )
 
       # half life for Radionuclide (seconds)
       halfLife = float(rph_info.RadionuclideHalfLife)
@@ -1324,17 +1353,17 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       injectedDose = float(rph_info.RadionuclideTotalDose)
 
       # Get scan date and time
-      acqDate = dicomSeries.AcquisitionDate
-      acqTime = dicomSeries.AcquisitionTime
-      if '.' not in acqTime:
-        acqTime += ".0"
-      scantime = datetime.datetime.strptime(acqDate + acqTime, '%Y%m%d%H%M%S.%f')
+      scantime = self.parse_dicom_time(
+        dicomSeries.AcquisitionDate,
+        dicomSeries.AcquisitionTime
+      )
 
       # calculate decay
       decay = np.exp(-np.log(2) * ((scantime - injectionTime).total_seconds()) / halfLife)
       # calculate the dose decayed during procedure (Bq)
       injectedDoseDecay = injectedDose * decay
-    except:
+    except Error as e:
+      print(e)
       # make estimation
       traceback.print_exc()
       weight = 75000
