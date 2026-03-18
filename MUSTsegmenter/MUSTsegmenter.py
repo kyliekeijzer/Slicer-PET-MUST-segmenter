@@ -1321,10 +1321,13 @@ class MUSTsegmenterLogic(ScriptedLoadableModuleLogic):
       try:
         self.patientAge = int((datetime.datetime.strptime(dicomSeries.StudyDate, '%Y%m%d') -
                                datetime.datetime.strptime(dicomSeries.PatientBirthDate, '%Y%m%d')).days)
-      except ValueError:
-        birth_date = dicomSeries.PatientBirthDate
-        if not birth_date:
-          print("Birthdate not available")
+      except (ValueError, AttributeError):
+        try:
+          birth_date = dicomSeries.PatientBirthDate
+          if not birth_date:
+            print("Birthdate not available")
+            self.patientAge = 50
+        except AttributeError:
           self.patientAge = 50
     self.PixelSpacing = dicomSeries.PixelSpacing
     self.SliceThickness = dicomSeries.SliceThickness
